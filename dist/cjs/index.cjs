@@ -579,8 +579,12 @@ var require_backoff = __commonJS({
 // src/index.ts
 var src_exports = {};
 __export(src_exports, {
+  Applications: () => Applications,
   AriClient: () => AriClient,
-  Channels: () => Channels
+  Channels: () => Channels,
+  Endpoints: () => Endpoints,
+  Playbacks: () => Playbacks,
+  Sounds: () => Sounds
 });
 module.exports = __toCommonJS(src_exports);
 
@@ -597,12 +601,38 @@ var BaseClient = class {
       auth: { username, password }
     });
   }
+  /**
+   * Executes a GET request.
+   * @param path - The API endpoint path.
+   */
   async get(path) {
     const response = await this.client.get(path);
     return response.data;
   }
+  /**
+   * Executes a POST request.
+   * @param path - The API endpoint path.
+   * @param data - Optional payload to send with the request.
+   */
   async post(path, data) {
     const response = await this.client.post(path, data);
+    return response.data;
+  }
+  /**
+   * Executes a PUT request.
+   * @param path - The API endpoint path.
+   * @param data - Payload to send with the request.
+   */
+  async put(path, data) {
+    const response = await this.client.put(path, data);
+    return response.data;
+  }
+  /**
+   * Executes a DELETE request.
+   * @param path - The API endpoint path.
+   */
+  async delete(path) {
+    const response = await this.client.delete(path);
     return response.data;
   }
 };
@@ -646,16 +676,82 @@ var Applications = class {
   }
 };
 
+// src/ari-client/resources/asterisk.ts
+function toQueryParams(options) {
+  return new URLSearchParams(
+    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, String(value)])
+  ).toString();
+}
+var Asterisk = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Retrieves information about the Asterisk server.
+   */
+  async getInfo() {
+    return this.client.get("/asterisk/info");
+  }
+  /**
+   * Lists all loaded modules in the Asterisk server.
+   */
+  async listModules() {
+    return this.client.get("/asterisk/modules");
+  }
+  /**
+   * Manages a specific module in the Asterisk server.
+   */
+  async manageModule(moduleName, action) {
+    return this.client.post(
+      `/asterisk/modules/${moduleName}?action=${encodeURIComponent(action)}`
+    );
+  }
+  /**
+   * Retrieves all configured logging channels.
+   */
+  async listLoggingChannels() {
+    return this.client.get("/asterisk/logging");
+  }
+  /**
+   * Adds or removes a log channel in the Asterisk server.
+   */
+  async manageLogChannel(logChannelName, action, configuration) {
+    const queryParams = toQueryParams(configuration || {});
+    return this.client.post(
+      `/asterisk/logging/${logChannelName}?action=${encodeURIComponent(action)}&${queryParams}`
+    );
+  }
+  /**
+   * Retrieves the value of a global variable.
+   */
+  async getGlobalVariable(variableName) {
+    return this.client.get(
+      `/asterisk/variables?variable=${encodeURIComponent(variableName)}`
+    );
+  }
+  /**
+   * Sets a global variable.
+   */
+  async setGlobalVariable(variableName, value) {
+    return this.client.post(
+      `/asterisk/variables?variable=${encodeURIComponent(variableName)}&value=${encodeURIComponent(value)}`
+    );
+  }
+};
+
 // src/ari-client/resources/channels.ts
+function toQueryParams2(options) {
+  return new URLSearchParams(
+    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, value])
+    // Garante que value é string
+  ).toString();
+}
 var Channels = class {
   constructor(client) {
     this.client = client;
   }
   /**
    * Lists all active channels.
-   * 
-   * @returns A promise that resolves to an array of Channel objects representing all active channels.
-   * @throws {Error} If the API response is not an array.
    */
   async list() {
     const channels = await this.client.get("/channels");
@@ -666,40 +762,45 @@ var Channels = class {
   }
   /**
    * Creates a new channel.
-   * 
-   * @param data - The OriginateRequest object containing the necessary data to create a new channel.
-   * @returns A promise that resolves to a Channel object representing the newly created channel.
    */
   async originate(data) {
     return this.client.post("/channels", data);
   }
   /**
    * Retrieves details of a specific channel.
-   * 
-   * @param channelId - The unique identifier of the channel.
-   * @returns A promise that resolves to a Channel object containing the details of the specified channel.
    */
   async getDetails(channelId) {
     return this.client.get(`/channels/${channelId}`);
   }
   /**
-   * Hangs up (terminates) a specific channel.
-   * 
-   * @param channelId - The unique identifier of the channel to be hung up.
-   * @returns A promise that resolves when the channel has been successfully hung up.
+   * Creates a channel and places it in a Stasis app without dialing it.
    */
-  async hangup(channelId) {
-    return this.client.post(`/channels/${channelId}/hangup`);
+  async createChannel(data) {
+    return this.client.post("/channels/create", data);
+  }
+  /**
+   * Creates a new channel with a specific ID and originates a call.
+   */
+  async originateWithId(channelId, data) {
+    return this.client.post(`/channels/${channelId}`, data);
+  }
+  /**
+   * Hangs up (terminates) a specific channel.
+   */
+  /**
+   * Hangs up a specific channel with optional reason or reason code.
+   */
+  async hangup(channelId, options) {
+    const queryParams = new URLSearchParams({
+      ...options?.reason_code && { reason_code: options.reason_code },
+      ...options?.reason && { reason: options.reason }
+    });
+    return this.client.delete(
+      `/channels/${channelId}?${queryParams.toString()}`
+    );
   }
   /**
    * Continues the dialplan for a specific channel.
-   * 
-   * @param channelId - The unique identifier of the channel.
-   * @param context - Optional. The context to continue in the dialplan.
-   * @param extension - Optional. The extension to continue in the dialplan.
-   * @param priority - Optional. The priority to continue in the dialplan.
-   * @param label - Optional. The label to continue in the dialplan.
-   * @returns A promise that resolves when the dialplan continuation has been successfully initiated.
    */
   async continueDialplan(channelId, context, extension, priority, label) {
     return this.client.post(`/channels/${channelId}/continue`, {
@@ -711,17 +812,230 @@ var Channels = class {
   }
   /**
    * Moves the channel to another Stasis application.
-   * 
-   * @param channelId - The unique identifier of the channel to be moved.
-   * @param app - The name of the Stasis application to move the channel to.
-   * @param appArgs - Optional. Arguments to be passed to the Stasis application.
-   * @returns A promise that resolves when the channel has been successfully moved to the new application.
    */
   async moveToApplication(channelId, app, appArgs) {
     return this.client.post(`/channels/${channelId}/move`, {
       app,
       appArgs
     });
+  }
+  /**
+   * Sets a channel variable.
+   */
+  async setVariable(channelId, variable, value) {
+    return this.client.post(`/channels/${channelId}/variable`, {
+      variable,
+      value
+    });
+  }
+  /**
+   * Gets a channel variable.
+   */
+  async getVariable(channelId, variable) {
+    return this.client.get(
+      `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`
+    );
+  }
+  /**
+   * Plays a media file to a channel.
+   */
+  async playMedia(channelId, media, options) {
+    const queryParams = options ? `?${new URLSearchParams(options).toString()}` : "";
+    return this.client.post(
+      `/channels/${channelId}/play${queryParams}`,
+      { media }
+    );
+  }
+  /**
+   * Starts music on hold (MOH) for a channel.
+   */
+  async startMusicOnHold(channelId) {
+    return this.client.post(`/channels/${channelId}/moh`);
+  }
+  /**
+   * Stops music on hold (MOH) for a channel.
+   */
+  async stopMusicOnHold(channelId) {
+    return this.client.delete(`/channels/${channelId}/moh`);
+  }
+  /**
+   * Starts playback of a media file on a channel.
+   */
+  async startPlayback(channelId, media, options) {
+    const queryParams = options ? `?${new URLSearchParams(options).toString()}` : "";
+    return this.client.post(
+      `/channels/${channelId}/play${queryParams}`,
+      { media }
+    );
+  }
+  /**
+   * Stops playback of a media file on a channel.
+   */
+  async stopPlayback(channelId, playbackId) {
+    return this.client.delete(
+      `/channels/${channelId}/play/${playbackId}`
+    );
+  }
+  /**
+   * Pauses playback of a media file on a channel.
+   */
+  async pausePlayback(channelId, playbackId) {
+    return this.client.post(
+      `/channels/${channelId}/play/${playbackId}/pause`
+    );
+  }
+  /**
+   * Resumes playback of a media file on a channel.
+   */
+  async resumePlayback(channelId, playbackId) {
+    return this.client.delete(
+      `/channels/${channelId}/play/${playbackId}/pause`
+    );
+  }
+  /**
+   * Rewinds playback of a media file on a channel.
+   */
+  async rewindPlayback(channelId, playbackId, skipMs) {
+    return this.client.post(
+      `/channels/${channelId}/play/${playbackId}/rewind`,
+      { skipMs }
+    );
+  }
+  /**
+   * Fast-forwards playback of a media file on a channel.
+   */
+  async fastForwardPlayback(channelId, playbackId, skipMs) {
+    return this.client.post(
+      `/channels/${channelId}/play/${playbackId}/forward`,
+      { skipMs }
+    );
+  }
+  /**
+   * Records audio from a channel.
+   */
+  async record(channelId, options) {
+    const queryParams = new URLSearchParams(
+      Object.entries(options).filter(
+        ([, value]) => value !== void 0
+      )
+    );
+    return this.client.post(
+      `/channels/${channelId}/record?${queryParams.toString()}`
+    );
+  }
+  /**
+   * Starts snooping on a channel.
+   */
+  async snoopChannel(channelId, options) {
+    const queryParams = toQueryParams2(options);
+    return this.client.post(
+      `/channels/${channelId}/snoop?${queryParams}`
+    );
+  }
+  /**
+   * Starts snooping on a channel with a specific snoop ID.
+   */
+  async snoopChannelWithId(channelId, snoopId, options) {
+    const queryParams = new URLSearchParams(options);
+    return this.client.post(
+      `/channels/${channelId}/snoop/${snoopId}?${queryParams.toString()}`
+    );
+  }
+  /**
+   * Dials a created channel.
+   */
+  async dial(channelId, caller, timeout) {
+    const queryParams = new URLSearchParams({
+      ...caller && { caller },
+      ...timeout && { timeout: timeout.toString() }
+    });
+    return this.client.post(
+      `/channels/${channelId}/dial?${queryParams.toString()}`
+    );
+  }
+  /**
+   * Retrieves RTP statistics for a channel.
+   */
+  async getRTPStatistics(channelId) {
+    return this.client.get(`/channels/${channelId}/rtp_statistics`);
+  }
+  /**
+   * Creates a channel to an external media source/sink.
+   */
+  async createExternalMedia(options) {
+    const queryParams = new URLSearchParams(options);
+    return this.client.post(
+      `/channels/externalMedia?${queryParams.toString()}`
+    );
+  }
+  /**
+   * Redirects the channel to a different location.
+   */
+  async redirectChannel(channelId, endpoint) {
+    return this.client.post(
+      `/channels/${channelId}/redirect?endpoint=${encodeURIComponent(endpoint)}`
+    );
+  }
+  /**
+   * Answers a channel.
+   */
+  async answerChannel(channelId) {
+    return this.client.post(`/channels/${channelId}/answer`);
+  }
+  /**
+   * Sends a ringing indication to a channel.
+   */
+  async ringChannel(channelId) {
+    return this.client.post(`/channels/${channelId}/ring`);
+  }
+  /**
+   * Stops ringing indication on a channel.
+   */
+  async stopRingChannel(channelId) {
+    return this.client.delete(`/channels/${channelId}/ring`);
+  }
+  /**
+   * Sends DTMF to a channel.
+   */
+  async sendDTMF(channelId, dtmf, options) {
+    const queryParams = new URLSearchParams({
+      dtmf,
+      ...options?.before && { before: options.before.toString() },
+      ...options?.between && { between: options.between.toString() },
+      ...options?.duration && { duration: options.duration.toString() },
+      ...options?.after && { after: options.after.toString() }
+    });
+    return this.client.post(
+      `/channels/${channelId}/dtmf?${queryParams.toString()}`
+    );
+  }
+  /**
+   * Mutes a channel.
+   */
+  async muteChannel(channelId, direction = "both") {
+    return this.client.post(
+      `/channels/${channelId}/mute?direction=${direction}`
+    );
+  }
+  /**
+   * Unmutes a channel.
+   */
+  async unmuteChannel(channelId, direction = "both") {
+    return this.client.delete(
+      `/channels/${channelId}/mute?direction=${direction}`
+    );
+  }
+  /**
+   * Puts a channel on hold.
+   */
+  async holdChannel(channelId) {
+    return this.client.post(`/channels/${channelId}/hold`);
+  }
+  /**
+   * Removes a channel from hold.
+   */
+  async unholdChannel(channelId) {
+    return this.client.delete(`/channels/${channelId}/hold`);
   }
 };
 
@@ -768,6 +1082,75 @@ var Endpoints = class {
       `/endpoints/${technology}/${resource}/sendMessage`,
       message
     );
+  }
+};
+
+// src/ari-client/resources/playbacks.ts
+var Playbacks = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Retrieves details of a specific playback.
+   *
+   * @param playbackId - The unique identifier of the playback.
+   * @returns A promise that resolves to a Playback object containing the details of the specified playback.
+   */
+  async getDetails(playbackId) {
+    return this.client.get(`/playbacks/${playbackId}`);
+  }
+  /**
+   * Controls a specific playback (e.g., pause, resume, rewind, forward, stop).
+   *
+   * @param playbackId - The unique identifier of the playback to control.
+   * @param controlRequest - The PlaybackControlRequest containing the control operation.
+   * @returns A promise that resolves when the control operation is successfully executed.
+   */
+  async control(playbackId, controlRequest) {
+    await this.client.post(
+      `/playbacks/${playbackId}/control`,
+      controlRequest
+    );
+  }
+  /**
+   * Stops a specific playback.
+   *
+   * @param playbackId - The unique identifier of the playback to stop.
+   * @returns A promise that resolves when the playback is successfully stopped.
+   */
+  async stop(playbackId) {
+    await this.client.post(`/playbacks/${playbackId}/stop`);
+  }
+};
+
+// src/ari-client/resources/sounds.ts
+var Sounds = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Lists all available sounds.
+   *
+   * @param params - Optional parameters to filter the list of sounds.
+   * @returns A promise that resolves to an array of Sound objects.
+   * @throws {Error} If the API response is not an array.
+   */
+  async list(params) {
+    const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+    const sounds = await this.client.get(`/sounds${query}`);
+    if (!Array.isArray(sounds)) {
+      throw new Error("Resposta da API /sounds n\xE3o \xE9 um array.");
+    }
+    return sounds;
+  }
+  /**
+   * Retrieves details of a specific sound.
+   *
+   * @param soundId - The unique identifier of the sound.
+   * @returns A promise that resolves to a Sound object containing the details of the specified sound.
+   */
+  async getDetails(soundId) {
+    return this.client.get(`/sounds/${soundId}`);
   }
 };
 
@@ -866,6 +1249,9 @@ var AriClient = class {
     this.channels = new Channels(this.baseClient);
     this.endpoints = new Endpoints(this.baseClient);
     this.applications = new Applications(this.baseClient);
+    this.playbacks = new Playbacks(this.baseClient);
+    this.sounds = new Sounds(this.baseClient);
+    this.asterisk = new Asterisk(this.baseClient);
   }
   wsClient = null;
   baseClient;
@@ -873,6 +1259,9 @@ var AriClient = class {
   channels;
   endpoints;
   applications;
+  playbacks;
+  sounds;
+  asterisk;
   /**
    * Connects to the ARI WebSocket for a specific application.
    *
@@ -980,45 +1369,32 @@ var AriClient = class {
    *
    * @returns {Promise<Channel[]>} A promise resolving to the list of active channels.
    */
+  /**
+   * Lists all active channels.
+   */
   async listChannels() {
     return this.channels.list();
   }
   /**
-   * Initiates a new channel on the Asterisk server.
-   *
-   * @param data - The parameters for creating the new channel.
-   * @returns {Promise<Channel>} A promise resolving to the new channel's details.
+   * Creates a new channel.
    */
   async originateChannel(data) {
     return this.channels.originate(data);
   }
   /**
    * Retrieves details of a specific channel.
-   *
-   * @param channelId - The unique identifier of the channel.
-   * @returns {Promise<Channel>} A promise resolving to the details of the channel.
    */
   async getChannelDetails(channelId) {
     return this.channels.getDetails(channelId);
   }
   /**
    * Hangs up a specific channel.
-   *
-   * @param channelId - The unique identifier of the channel to hang up.
-   * @returns {Promise<void>}
    */
   async hangupChannel(channelId) {
     return this.channels.hangup(channelId);
   }
   /**
    * Continues the dialplan for a specific channel.
-   *
-   * @param channelId - The unique identifier of the channel.
-   * @param context - Optional. The context to continue in the dialplan.
-   * @param extension - Optional. The extension to continue in the dialplan.
-   * @param priority - Optional. The priority to continue in the dialplan.
-   * @param label - Optional. The label to continue in the dialplan.
-   * @returns {Promise<void>}
    */
   async continueChannelDialplan(channelId, context, extension, priority, label) {
     return this.channels.continueDialplan(
@@ -1031,14 +1407,196 @@ var AriClient = class {
   }
   /**
    * Moves a channel to another Stasis application.
-   *
-   * @param channelId - The unique identifier of the channel.
-   * @param app - The name of the Stasis application to move the channel to.
-   * @param appArgs - Optional arguments for the Stasis application.
-   * @returns {Promise<void>}
    */
   async moveChannelToApplication(channelId, app, appArgs) {
     return this.channels.moveToApplication(channelId, app, appArgs);
+  }
+  /**
+   * Sets a channel variable.
+   */
+  async setChannelVariable(channelId, variable, value) {
+    return this.channels.setVariable(channelId, variable, value);
+  }
+  /**
+   * Gets a channel variable.
+   */
+  async getChannelVariable(channelId, variable) {
+    return this.channels.getVariable(channelId, variable);
+  }
+  /**
+   * Plays a media file to a channel.
+   */
+  async playMediaToChannel(channelId, media, options) {
+    return this.channels.playMedia(channelId, media, options);
+  }
+  /**
+   * Starts music on hold for a channel.
+   */
+  async startChannelMusicOnHold(channelId) {
+    return this.channels.startMusicOnHold(channelId);
+  }
+  /**
+   * Stops music on hold for a channel.
+   */
+  async stopChannelMusicOnHold(channelId) {
+    return this.channels.stopMusicOnHold(channelId);
+  }
+  /**
+   * Starts playback of a media file on a channel.
+   */
+  async startChannelPlayback(channelId, media, options) {
+    return this.channels.startPlayback(channelId, media, options);
+  }
+  /**
+   * Stops playback of a media file on a channel.
+   */
+  async stopChannelPlayback(channelId, playbackId) {
+    return this.channels.stopPlayback(channelId, playbackId);
+  }
+  /**
+   * Pauses playback of a media file on a channel.
+   */
+  async pauseChannelPlayback(channelId, playbackId) {
+    return this.channels.pausePlayback(channelId, playbackId);
+  }
+  /**
+   * Resumes playback of a media file on a channel.
+   */
+  async resumeChannelPlayback(channelId, playbackId) {
+    return this.channels.resumePlayback(channelId, playbackId);
+  }
+  /**
+   * Rewinds playback of a media file on a channel.
+   */
+  async rewindChannelPlayback(channelId, playbackId, skipMs) {
+    return this.channels.rewindPlayback(channelId, playbackId, skipMs);
+  }
+  /**
+   * Fast-forwards playback of a media file on a channel.
+   */
+  async fastForwardChannelPlayback(channelId, playbackId, skipMs) {
+    return this.channels.fastForwardPlayback(channelId, playbackId, skipMs);
+  }
+  /**
+   * Records audio from a channel.
+   */
+  async recordAudio(channelId, options) {
+    return this.channels.record(channelId, options);
+  }
+  /**
+   * Starts snooping on a channel.
+   */
+  async snoopChannel(channelId, options) {
+    return this.channels.snoopChannel(channelId, options);
+  }
+  /**
+   * Starts snooping on a channel with a specific snoop ID.
+   */
+  async snoopChannelWithId(channelId, snoopId, options) {
+    return this.channels.snoopChannelWithId(channelId, snoopId, options);
+  }
+  /**
+   * Dials a created channel.
+   */
+  async dialChannel(channelId, caller, timeout) {
+    return this.channels.dial(channelId, caller, timeout);
+  }
+  /**
+   * Retrieves RTP statistics for a channel.
+   */
+  async getRTPStatistics(channelId) {
+    return this.channels.getRTPStatistics(channelId);
+  }
+  /**
+   * Creates a channel to an external media source/sink.
+   */
+  async createExternalMedia(options) {
+    return this.channels.createExternalMedia(options);
+  }
+  /**
+   * Redirects a channel to a different location.
+   */
+  async redirectChannel(channelId, endpoint) {
+    return this.channels.redirectChannel(channelId, endpoint);
+  }
+  /**
+   * Answers a channel.
+   */
+  async answerChannel(channelId) {
+    return this.channels.answerChannel(channelId);
+  }
+  /**
+   * Sends a ringing indication to a channel.
+   */
+  async ringChannel(channelId) {
+    return this.channels.ringChannel(channelId);
+  }
+  /**
+   * Stops ringing indication on a channel.
+   */
+  async stopRingChannel(channelId) {
+    return this.channels.stopRingChannel(channelId);
+  }
+  /**
+   * Sends DTMF to a channel.
+   */
+  async sendDTMF(channelId, dtmf, options) {
+    return this.channels.sendDTMF(channelId, dtmf, options);
+  }
+  /**
+   * Mutes a channel.
+   */
+  async muteChannel(channelId, direction = "both") {
+    return this.channels.muteChannel(channelId, direction);
+  }
+  /**
+   * Unmutes a channel.
+   */
+  async unmuteChannel(channelId, direction = "both") {
+    return this.channels.unmuteChannel(channelId, direction);
+  }
+  /**
+   * Puts a channel on hold.
+   */
+  async holdChannel(channelId) {
+    return this.channels.holdChannel(channelId);
+  }
+  /**
+   * Removes a channel from hold.
+   */
+  async unholdChannel(channelId) {
+    return this.channels.unholdChannel(channelId);
+  }
+  /**
+   * Creates a new channel using the provided originate request data.
+   *
+   * @param data - The originate request data containing channel creation parameters.
+   * @returns A promise that resolves to the created Channel object.
+   */
+  async createChannel(data) {
+    return this.channels.createChannel(data);
+  }
+  /**
+   * Hangs up a specific channel.
+   *
+   * @param channelId - The unique identifier of the channel to hang up.
+   * @param options - Optional parameters for the hangup operation.
+   * @param options.reason_code - An optional reason code for the hangup.
+   * @param options.reason - An optional textual reason for the hangup.
+   * @returns A promise that resolves when the hangup operation is complete.
+   */
+  async hangup(channelId, options) {
+    return this.channels.hangup(channelId, options);
+  }
+  /**
+   * Originates a new channel with a specified ID using the provided originate request data.
+   *
+   * @param channelId - The desired unique identifier for the new channel.
+   * @param data - The originate request data containing channel creation parameters.
+   * @returns A promise that resolves to the created Channel object.
+   */
+  async originateWithId(channelId, data) {
+    return this.channels.originateWithId(channelId, data);
   }
   // Métodos relacionados a endpoints:
   /**
@@ -1098,10 +1656,107 @@ var AriClient = class {
   async sendMessageToApplication(appName, body) {
     return this.applications.sendMessage(appName, body);
   }
+  // Métodos relacionados a playbacks
+  /**
+   * Retrieves details of a specific playback.
+   *
+   * @param playbackId - The unique identifier of the playback.
+   * @returns {Promise<Playback>} A promise resolving to the playback details.
+   */
+  async getPlaybackDetails(playbackId) {
+    return this.playbacks.getDetails(playbackId);
+  }
+  /**
+   * Controls a specific playback.
+   *
+   * @param playbackId - The unique identifier of the playback.
+   * @param controlRequest - The PlaybackControlRequest containing the control operation.
+   * @returns {Promise<void>} A promise resolving when the control operation is successfully executed.
+   */
+  async controlPlayback(playbackId, controlRequest) {
+    return this.playbacks.control(playbackId, controlRequest);
+  }
+  /**
+   * Stops a specific playback.
+   *
+   * @param playbackId - The unique identifier of the playback.
+   * @returns {Promise<void>} A promise resolving when the playback is successfully stopped.
+   */
+  async stopPlayback(playbackId) {
+    return this.playbacks.stop(playbackId);
+  }
+  /**
+   * Lists all available sounds.
+   *
+   * @param params - Optional parameters to filter the list of sounds.
+   * @returns {Promise<Sound[]>} A promise resolving to the list of sounds.
+   */
+  async listSounds(params) {
+    return this.sounds.list(params);
+  }
+  /**
+   * Retrieves details of a specific sound.
+   *
+   * @param soundId - The unique identifier of the sound.
+   * @returns {Promise<Sound>} A promise resolving to the sound details.
+   */
+  async getSoundDetails(soundId) {
+    return this.sounds.getDetails(soundId);
+  }
+  /**
+   * Retrieves information about the Asterisk server.
+   */
+  async getAsteriskInfo() {
+    return this.asterisk.getInfo();
+  }
+  /**
+   * Lists all loaded modules in the Asterisk server.
+   */
+  async listModules() {
+    return this.asterisk.listModules();
+  }
+  /**
+   * Manages a specific module in the Asterisk server.
+   */
+  async manageModule(moduleName, action) {
+    return this.asterisk.manageModule(moduleName, action);
+  }
+  /**
+   * Retrieves all configured logging channels.
+   */
+  async listLoggingChannels() {
+    return this.asterisk.listLoggingChannels();
+  }
+  /**
+   * Adds or removes a log channel in the Asterisk server.
+   */
+  async manageLogChannel(logChannelName, action, configuration) {
+    return this.asterisk.manageLogChannel(
+      logChannelName,
+      action,
+      configuration
+    );
+  }
+  /**
+   * Retrieves the value of a global variable.
+   */
+  async getGlobalVariable(variableName) {
+    return this.asterisk.getGlobalVariable(variableName);
+  }
+  /**
+   * Sets a global variable.
+   */
+  async setGlobalVariable(variableName, value) {
+    return this.asterisk.setGlobalVariable(variableName, value);
+  }
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  Applications,
   AriClient,
-  Channels
+  Channels,
+  Endpoints,
+  Playbacks,
+  Sounds
 });
 //# sourceMappingURL=index.cjs.map
