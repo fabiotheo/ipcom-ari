@@ -1,0 +1,1 @@
+{"version":3,"file":"applications.types.d.ts","sourceRoot":"","sources":["../../../../src/ari-client/interfaces/applications.types.ts"],"names":[],"mappings":"AAAA,MAAM,WAAW,WAAW;IAC1B,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,CAAC,EAAE,MAAM,CAAC;CACtB;AAED,MAAM,WAAW,kBAAkB;IACjC,IAAI,EAAE,MAAM,CAAC;IACb,WAAW,CAAC,EAAE,MAAM,CAAC;IACrB,gBAAgB,CAAC,EAAE,MAAM,EAAE,CAAC;CAC7B"}

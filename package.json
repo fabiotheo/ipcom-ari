@@ -1,0 +1,56 @@
+{
+  "name": "@ipcom/asterisk-ari",
+  "version": "0.0.17",
+  "type": "module",
+  "description": "JavaScript client for Asterisk REST Interface.",
+  "homepage": "https://github.com/fabiotheo/ipcom-asterisk-ari",
+  "keywords": ["Asterisk", "ARI", "Node.js", "TypeScript"],
+  "types": "dist/client.d.ts",
+  "main": "./dist/cjs/client.cjs",
+  "module": "./dist/esm/client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node build.js",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/esm/index.js",
+    "docs": "./node_modules/.bin/typedoc && touch docs/.nojekyll"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://fabiotheo/ipcom-asterisk-ari"
+  },
+  "bugs": {
+    "url": "https://ipcom.com.br",
+    "email": "suporte@ipcom.com.br"
+  },
+  "license": "Apache-2.0",
+  "author": "Fábio Fernandes Theodoro",
+  "dependencies": {
+    "@types/ws": "^8.5.13",
+    "axios": "^1.7.8",
+    "exponential-backoff": "^3.1.1",
+    "uuid": "^11.0.3",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "require": "./dist/cjs/index.cjs",
+      "import": "./dist/esm/index.js"
+    }
+  },
+  "files": ["dist"],
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@types/uuid": "^10.0.0",
+    "esbuild": "^0.24.0",
+    "typedoc": "^0.26.11",
+    "typescript": "5.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
