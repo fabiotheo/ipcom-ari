@@ -570,52 +570,157 @@ var require_backoff = __commonJS({
   }
 });
 
-// src/ari-client/ariClient.ts
-var import_exponential_backoff = __toESM(require_backoff(), 1);
-
 // src/ari-client/baseClient.ts
 import axios from "axios";
 var BaseClient = class {
-  client;
-  constructor(baseUrl, username, password) {
+  constructor(baseUrl, username, password, timeout = 5e3) {
+    this.baseUrl = baseUrl;
+    this.username = username;
+    this.password = password;
+    if (!/^https?:\/\/.+/.test(baseUrl)) {
+      throw new Error(
+        "Invalid base URL. It must start with http:// or https://"
+      );
+    }
     this.client = axios.create({
       baseURL: baseUrl,
-      auth: { username, password }
+      auth: { username, password },
+      timeout
     });
+    this.addInterceptors();
+  }
+  client;
+  getBaseUrl() {
+    return this.baseUrl;
+  }
+  /**
+   * Retorna as credenciais configuradas.
+   */
+  getCredentials() {
+    return {
+      baseUrl: this.baseUrl,
+      username: this.username,
+      password: this.password
+    };
+  }
+  /**
+   * Adds interceptors to the Axios instance.
+   */
+  addInterceptors() {
+    this.client.interceptors.request.use(
+      (config) => {
+        return config;
+      },
+      (error) => {
+        console.error("[Request Error]", error.message);
+        return Promise.reject(error);
+      }
+    );
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        const status = error.response?.status;
+        const message = error.response?.data?.message || error.message || "Unknown error";
+        const errorDetails = {
+          status,
+          message,
+          url: error.config?.url || "Unknown URL",
+          method: error.config?.method?.toUpperCase() || "Unknown Method"
+        };
+        if (status === 404) {
+          console.warn(`[404] Not Found: ${errorDetails.url}`);
+        } else if (status >= 500) {
+          console.error(`[500] Server Error: ${errorDetails.url}`);
+        } else {
+          console.warn(
+            `[Response Error] ${errorDetails.method} ${errorDetails.url}: ${message}`
+          );
+        }
+        return Promise.reject(
+          new Error(
+            `[Error] ${errorDetails.method} ${errorDetails.url} - ${message} (Status: ${status})`
+          )
+        );
+      }
+    );
   }
   /**
    * Executes a GET request.
    * @param path - The API endpoint path.
+   * @param config - Optional Axios request configuration.
    */
-  async get(path) {
-    const response = await this.client.get(path);
-    return response.data;
+  async get(path, config) {
+    try {
+      const response = await this.client.get(path, config);
+      return response.data;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
   /**
    * Executes a POST request.
    * @param path - The API endpoint path.
    * @param data - Optional payload to send with the request.
+   * @param config - Optional Axios request configuration.
    */
-  async post(path, data) {
-    const response = await this.client.post(path, data);
-    return response.data;
+  async post(path, data, config) {
+    try {
+      const response = await this.client.post(path, data, config);
+      return response.data;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
   /**
    * Executes a PUT request.
    * @param path - The API endpoint path.
    * @param data - Payload to send with the request.
+   * @param config - Optional Axios request configuration.
    */
-  async put(path, data) {
-    const response = await this.client.put(path, data);
-    return response.data;
+  async put(path, data, config) {
+    try {
+      const response = await this.client.put(path, data, config);
+      return response.data;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
   }
   /**
    * Executes a DELETE request.
    * @param path - The API endpoint path.
+   * @param config - Optional Axios request configuration.
    */
-  async delete(path) {
-    const response = await this.client.delete(path);
-    return response.data;
+  async delete(path, config) {
+    try {
+      const response = await this.client.delete(path, config);
+      return response.data;
+    } catch (error) {
+      this.handleRequestError(error);
+    }
+  }
+  /**
+   * Handles errors for HTTP requests.
+   * @param error - The error to handle.
+   */
+  handleRequestError(error) {
+    if (axios.isAxiosError(error)) {
+      console.error(`[HTTP Error] ${error.message}`);
+      throw new Error(error.message || "HTTP Error");
+    } else {
+      console.error(`[Unexpected Error] ${error}`);
+      throw error;
+    }
+  }
+  /**
+   * Sets custom headers for the client instance.
+   * Useful for adding dynamic tokens or specific API headers.
+   * @param headers - Headers to merge with existing configuration.
+   */
+  setHeaders(headers) {
+    this.client.defaults.headers.common = {
+      ...this.client.defaults.headers.common,
+      ...headers
+    };
   }
 };
 
@@ -626,8 +731,8 @@ var Applications = class {
   }
   /**
    * Lists all applications.
-   *
-   * @returns A promise that resolves to an array of Application objects representing all registered applications.
+   * 
+   * @returns A promise that resolves to an array of Application objects.
    * @throws {Error} If the API response is not an array.
    */
   async list() {
@@ -639,19 +744,27 @@ var Applications = class {
   }
   /**
    * Retrieves details of a specific application.
-   *
-   * @param appName - The unique name of the application.
-   * @returns A promise that resolves to an ApplicationDetails object containing the details of the specified application.
+   * 
+   * @param appName - The name of the application to retrieve details for.
+   * @returns A promise that resolves to an ApplicationDetails object.
+   * @throws {Error} If there's an error fetching the application details.
    */
   async getDetails(appName) {
-    return this.client.get(`/applications/${appName}`);
+    try {
+      return await this.client.get(
+        `/applications/${appName}`
+      );
+    } catch (error) {
+      console.error(`Erro ao obter detalhes do aplicativo ${appName}:`, error);
+      throw error;
+    }
   }
   /**
    * Sends a message to a specific application.
-   *
-   * @param appName - The unique name of the application.
-   * @param body - The message body to send.
-   * @returns A promise that resolves when the message is sent successfully.
+   * 
+   * @param appName - The name of the application to send the message to.
+   * @param body - The message to be sent, containing an event and optional data.
+   * @returns A promise that resolves when the message is successfully sent.
    */
   async sendMessage(appName, body) {
     await this.client.post(`/applications/${appName}/messages`, body);
@@ -671,22 +784,38 @@ var Asterisk = class {
   /**
    * Retrieves information about the Asterisk server.
    */
-  async getInfo() {
+  async get() {
     return this.client.get("/asterisk/info");
   }
   /**
    * Lists all loaded modules in the Asterisk server.
    */
-  async listModules() {
+  async list() {
     return this.client.get("/asterisk/modules");
   }
   /**
    * Manages a specific module in the Asterisk server.
+   *
+   * @param moduleName - The name of the module to manage.
+   * @param action - The action to perform on the module: "load", "unload", or "reload".
+   * @returns A promise that resolves when the action is completed successfully.
+   * @throws {Error} Throws an error if the HTTP method or action is invalid.
    */
-  async manageModule(moduleName, action) {
-    return this.client.post(
-      `/asterisk/modules/${moduleName}?action=${encodeURIComponent(action)}`
-    );
+  async manage(moduleName, action) {
+    const url = `/asterisk/modules/${moduleName}`;
+    switch (action) {
+      case "load":
+        await this.client.post(`${url}?action=load`);
+        break;
+      case "unload":
+        await this.client.delete(url);
+        break;
+      case "reload":
+        await this.client.put(url, {});
+        break;
+      default:
+        throw new Error(`A\xE7\xE3o inv\xE1lida: ${action}`);
+    }
   }
   /**
    * Retrieves all configured logging channels.
@@ -721,303 +850,621 @@ var Asterisk = class {
   }
 };
 
-// src/ari-client/resources/channels.ts
-function toQueryParams2(options) {
-  return new URLSearchParams(
-    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, value])
-    // Garante que value é string
-  ).toString();
-}
-var Channels = class {
+// src/ari-client/resources/bridges.ts
+var Bridges = class {
   constructor(client) {
     this.client = client;
   }
   /**
-   * Lists all active channels.
+   * Lists all active bridges.
    */
   async list() {
-    const channels = await this.client.get("/channels");
+    return this.client.get("/bridges");
+  }
+  /**
+   * Creates a new bridge.
+   */
+  async createBridge(request) {
+    return this.client.post("/bridges", request);
+  }
+  /**
+   * Retrieves details of a specific bridge.
+   */
+  async getDetails(bridgeId) {
+    return this.client.get(`/bridges/${bridgeId}`);
+  }
+  /**
+   * Destroys (deletes) a specific bridge.
+   */
+  async destroy(bridgeId) {
+    return this.client.delete(`/bridges/${bridgeId}`);
+  }
+  /**
+   * Adds a channel or multiple channels to a bridge.
+   */
+  async addChannels(bridgeId, request) {
+    const queryParams = new URLSearchParams({
+      channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel,
+      ...request.role && { role: request.role }
+    }).toString();
+    await this.client.post(
+      `/bridges/${bridgeId}/addChannel?${queryParams}`
+    );
+  }
+  /**
+   * Removes a channel or multiple channels from a bridge.
+   */
+  async removeChannels(bridgeId, request) {
+    const queryParams = new URLSearchParams({
+      channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel
+    }).toString();
+    await this.client.post(
+      `/bridges/${bridgeId}/removeChannel?${queryParams}`
+    );
+  }
+  /**
+   * Plays media to a bridge.
+   */
+  async playMedia(bridgeId, request) {
+    const queryParams = new URLSearchParams({
+      ...request.lang && { lang: request.lang },
+      ...request.offsetms && { offsetms: request.offsetms.toString() },
+      ...request.skipms && { skipms: request.skipms.toString() },
+      ...request.playbackId && { playbackId: request.playbackId }
+    }).toString();
+    return this.client.post(
+      `/bridges/${bridgeId}/play?${queryParams}`,
+      { media: request.media }
+    );
+  }
+  /**
+   * Stops media playback on a bridge.
+   */
+  async stopPlayback(bridgeId, playbackId) {
+    await this.client.delete(`/bridges/${bridgeId}/play/${playbackId}`);
+  }
+  /**
+   * Sets the video source for a bridge.
+   */
+  async setVideoSource(bridgeId, channelId) {
+    await this.client.post(
+      `/bridges/${bridgeId}/videoSource?channelId=${encodeURIComponent(channelId)}`
+    );
+  }
+  /**
+   * Clears the video source for a bridge.
+   */
+  async clearVideoSource(bridgeId) {
+    await this.client.delete(`/bridges/${bridgeId}/videoSource`);
+  }
+};
+
+// src/ari-client/resources/channels.ts
+import { EventEmitter } from "events";
+
+// node_modules/uuid/dist/esm/stringify.js
+var byteToHex = [];
+for (let i = 0; i < 256; ++i) {
+  byteToHex.push((i + 256).toString(16).slice(1));
+}
+function unsafeStringify(arr, offset = 0) {
+  return (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + "-" + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + "-" + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + "-" + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + "-" + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase();
+}
+
+// node_modules/uuid/dist/esm/rng.js
+import { randomFillSync } from "crypto";
+var rnds8Pool = new Uint8Array(256);
+var poolPtr = rnds8Pool.length;
+function rng() {
+  if (poolPtr > rnds8Pool.length - 16) {
+    randomFillSync(rnds8Pool);
+    poolPtr = 0;
+  }
+  return rnds8Pool.slice(poolPtr, poolPtr += 16);
+}
+
+// node_modules/uuid/dist/esm/native.js
+import { randomUUID } from "crypto";
+var native_default = { randomUUID };
+
+// node_modules/uuid/dist/esm/v4.js
+function v4(options, buf, offset) {
+  if (native_default.randomUUID && !buf && !options) {
+    return native_default.randomUUID();
+  }
+  options = options || {};
+  const rnds = options.random || (options.rng || rng)();
+  rnds[6] = rnds[6] & 15 | 64;
+  rnds[8] = rnds[8] & 63 | 128;
+  if (buf) {
+    offset = offset || 0;
+    for (let i = 0; i < 16; ++i) {
+      buf[offset + i] = rnds[i];
+    }
+    return buf;
+  }
+  return unsafeStringify(rnds);
+}
+var v4_default = v4;
+
+// src/ari-client/utils.ts
+function toQueryParams2(options) {
+  return new URLSearchParams(
+    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, value])
+  ).toString();
+}
+
+// src/ari-client/resources/channels.ts
+var ChannelInstance = class {
+  // ID do canal
+  constructor(client, baseClient, channelId = `channel-${Date.now()}`) {
+    this.client = client;
+    this.baseClient = baseClient;
+    this.channelId = channelId;
+    this.id = channelId || `channel-${Date.now()}`;
+  }
+  eventEmitter = new EventEmitter();
+  channelData = null;
+  id;
+  /**
+   * Registra um listener para eventos específicos deste canal.
+   */
+  on(event, listener) {
+    const wrappedListener = (data) => {
+      if ("channel" in data && data.channel?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.on(event, wrappedListener);
+  }
+  /**
+   * Registra um listener único para eventos específicos deste canal.
+   */
+  once(event, listener) {
+    const wrappedListener = (data) => {
+      if ("channel" in data && data.channel?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.once(event, wrappedListener);
+  }
+  /**
+   * Remove um listener para eventos específicos deste canal.
+   */
+  off(event, listener) {
+    if (listener) {
+      this.eventEmitter.off(event, listener);
+    } else {
+      const listeners = this.eventEmitter.listeners(event);
+      listeners.forEach((fn) => {
+        this.eventEmitter.off(event, fn);
+      });
+    }
+  }
+  /**
+   * Obtém a quantidade de listeners registrados para o evento especificado.
+   */
+  getListenerCount(event) {
+    return this.eventEmitter.listenerCount(event);
+  }
+  /**
+   * Emite eventos internamente para o canal.
+   * Verifica o ID do canal antes de emitir.
+   */
+  emitEvent(event) {
+    if ("channel" in event && event.channel?.id === this.id) {
+      this.eventEmitter.emit(event.type, event);
+    }
+  }
+  /**
+   * Remove todos os listeners para este canal.
+   */
+  removeAllListeners() {
+    console.log(`Removendo todos os listeners para o canal ${this.id}`);
+    this.eventEmitter.removeAllListeners();
+  }
+  async answer() {
+    await this.baseClient.post(`/channels/${this.id}/answer`);
+  }
+  /**
+   * Origina um canal físico no Asterisk.
+   */
+  async originate(data) {
+    if (this.channelData) {
+      throw new Error("O canal j\xE1 foi criado.");
+    }
+    const channel = await this.baseClient.post("/channels", data);
+    this.channelData = channel;
+    return channel;
+  }
+  /**
+   * Obtém os detalhes do canal.
+   */
+  async getDetails() {
+    if (this.channelData) {
+      return this.channelData;
+    }
+    if (!this.id) {
+      throw new Error("Nenhum ID de canal associado a esta inst\xE2ncia.");
+    }
+    const details = await this.baseClient.get(`/channels/${this.id}`);
+    this.channelData = details;
+    return details;
+  }
+  async getVariable(variable) {
+    if (!variable) {
+      throw new Error("The 'variable' parameter is required.");
+    }
+    return this.baseClient.get(
+      `/channels/${this.id}/variable?variable=${encodeURIComponent(variable)}`
+    );
+  }
+  /**
+   * Encerra o canal, se ele já foi criado.
+   */
+  async hangup() {
+    if (!this.channelData) {
+      console.log("Canal n\xE3o inicializado, buscando detalhes...");
+      this.channelData = await this.getDetails();
+    }
+    if (!this.channelData?.id) {
+      throw new Error("N\xE3o foi poss\xEDvel inicializar o canal. ID inv\xE1lido.");
+    }
+    await this.baseClient.delete(`/channels/${this.channelData.id}`);
+  }
+  /**
+   * Reproduz mídia no canal.
+   */
+  async play(options, playbackId) {
+    if (!this.channelData) {
+      console.log("Canal n\xE3o inicializado, buscando detalhes...");
+      this.channelData = await this.getDetails();
+    }
+    const playback = this.client.Playback(playbackId || v4_default());
+    if (!this.channelData?.id) {
+      throw new Error("N\xE3o foi poss\xEDvel inicializar o canal. ID inv\xE1lido.");
+    }
+    await this.baseClient.post(
+      `/channels/${this.channelData.id}/play/${playback.id}`,
+      options
+    );
+    return playback;
+  }
+  /**
+   * Reproduz mídia em um canal.
+   */
+  async playMedia(media, options) {
+    if (!this.channelData) {
+      throw new Error("O canal ainda n\xE3o foi criado.");
+    }
+    const queryParams = options ? `?${new URLSearchParams(options).toString()}` : "";
+    return this.baseClient.post(
+      `/channels/${this.channelData.id}/play${queryParams}`,
+      { media }
+    );
+  }
+  /**
+   * Para a reprodução de mídia.
+   */
+  async stopPlayback(playbackId) {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.delete(
+      `/channels/${this.channelData.id}/play/${playbackId}`
+    );
+  }
+  /**
+   * Pausa a reprodução de mídia.
+   */
+  async pausePlayback(playbackId) {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.post(
+      `/channels/${this.channelData.id}/play/${playbackId}/pause`
+    );
+  }
+  /**
+   * Retoma a reprodução de mídia.
+   */
+  async resumePlayback(playbackId) {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.delete(
+      `/channels/${this.channelData.id}/play/${playbackId}/pause`
+    );
+  }
+  /**
+   * Retrocede a reprodução de mídia.
+   */
+  async rewindPlayback(playbackId, skipMs) {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.post(
+      `/channels/${this.channelData.id}/play/${playbackId}/rewind`,
+      { skipMs }
+    );
+  }
+  /**
+   * Avança a reprodução de mídia.
+   */
+  async fastForwardPlayback(playbackId, skipMs) {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.post(
+      `/channels/${this.channelData.id}/play/${playbackId}/forward`,
+      { skipMs }
+    );
+  }
+  /**
+   * Muta o canal.
+   */
+  async muteChannel(direction = "both") {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.post(
+      `/channels/${this.channelData.id}/mute?direction=${direction}`
+    );
+  }
+  /**
+   * Desmuta o canal.
+   */
+  async unmuteChannel(direction = "both") {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.delete(
+      `/channels/${this.channelData.id}/mute?direction=${direction}`
+    );
+  }
+  /**
+   * Coloca o canal em espera.
+   */
+  async holdChannel() {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.post(`/channels/${this.channelData.id}/hold`);
+  }
+  /**
+   * Remove o canal da espera.
+   */
+  async unholdChannel() {
+    if (!this.channelData?.id) {
+      throw new Error("Canal n\xE3o associado a esta inst\xE2ncia.");
+    }
+    await this.baseClient.delete(`/channels/${this.channelData.id}/hold`);
+  }
+};
+var Channels = class {
+  constructor(baseClient, client) {
+    this.baseClient = baseClient;
+    this.client = client;
+  }
+  channelInstances = /* @__PURE__ */ new Map();
+  Channel({ id }) {
+    if (!id) {
+      const instance = new ChannelInstance(this.client, this.baseClient);
+      this.channelInstances.set(instance.id, instance);
+      return instance;
+    }
+    if (!this.channelInstances.has(id)) {
+      const instance = new ChannelInstance(this.client, this.baseClient, id);
+      this.channelInstances.set(id, instance);
+      return instance;
+    }
+    return this.channelInstances.get(id);
+  }
+  /**
+   * Remove uma instância de canal.
+   */
+  removeChannelInstance(channelId) {
+    if (this.channelInstances.has(channelId)) {
+      const instance = this.channelInstances.get(channelId);
+      instance?.removeAllListeners();
+      this.channelInstances.delete(channelId);
+      console.log(`Inst\xE2ncia do canal ${channelId} removida.`);
+    } else {
+      console.warn(
+        `Tentativa de remover uma inst\xE2ncia inexistente: ${channelId}`
+      );
+    }
+  }
+  /**
+   * Propaga eventos do WebSocket para o canal correspondente.
+   */
+  propagateEventToChannel(event) {
+    if ("channel" in event && event.channel?.id) {
+      const instance = this.channelInstances.get(event.channel.id);
+      if (instance) {
+        instance.emitEvent(event);
+      } else {
+        console.warn(
+          `Nenhuma inst\xE2ncia encontrada para o canal ${event.channel.id}`
+        );
+      }
+    }
+  }
+  /**
+   * Origina um canal físico diretamente, sem uma instância de `ChannelInstance`.
+   */
+  async originate(data) {
+    return this.baseClient.post("/channels", data);
+  }
+  /**
+   * Obtém detalhes de um canal específico.
+   */
+  async getDetails(channelId) {
+    return this.baseClient.get(`/channels/${channelId}`);
+  }
+  /**
+   * Lista todos os canais ativos.
+   */
+  async list() {
+    const channels = await this.baseClient.get("/channels");
     if (!Array.isArray(channels)) {
       throw new Error("Resposta da API /channels n\xE3o \xE9 um array.");
     }
     return channels;
   }
   /**
-   * Creates a new channel.
-   */
-  async originate(data) {
-    return this.client.post("/channels", data);
-  }
-  /**
-   * Retrieves details of a specific channel.
-   */
-  async getDetails(channelId) {
-    return this.client.get(`/channels/${channelId}`);
-  }
-  /**
-   * Creates a channel and places it in a Stasis app without dialing it.
-   */
-  async createChannel(data) {
-    return this.client.post("/channels/create", data);
-  }
-  /**
-   * Creates a new channel with a specific ID and originates a call.
-   */
-  async originateWithId(channelId, data) {
-    return this.client.post(`/channels/${channelId}`, data);
-  }
-  /**
-   * Hangs up (terminates) a specific channel.
-   */
-  /**
-   * Hangs up a specific channel with optional reason or reason code.
+   * Encerra um canal específico.
    */
   async hangup(channelId, options) {
     const queryParams = new URLSearchParams({
       ...options?.reason_code && { reason_code: options.reason_code },
       ...options?.reason && { reason: options.reason }
     });
-    return this.client.delete(
+    return this.baseClient.delete(
       `/channels/${channelId}?${queryParams.toString()}`
     );
   }
   /**
-   * Continues the dialplan for a specific channel.
+   * Inicia a escuta em um canal.
    */
+  async snoopChannel(channelId, options) {
+    const queryParams = toQueryParams2(options);
+    return this.baseClient.post(
+      `/channels/${channelId}/snoop?${queryParams}`
+    );
+  }
+  async startSilence(channelId) {
+    return this.baseClient.post(`/channels/${channelId}/silence`);
+  }
+  async stopSilence(channelId) {
+    return this.baseClient.delete(`/channels/${channelId}/silence`);
+  }
+  async getRTPStatistics(channelId) {
+    return this.baseClient.get(
+      `/channels/${channelId}/rtp_statistics`
+    );
+  }
+  async createExternalMedia(options) {
+    const queryParams = toQueryParams2(options);
+    return this.baseClient.post(
+      `/channels/externalMedia?${queryParams}`
+    );
+  }
+  async playWithId(channelId, playbackId, media, options) {
+    const queryParams = options ? `?${toQueryParams2(options)}` : "";
+    return this.baseClient.post(
+      `/channels/${channelId}/play/${playbackId}${queryParams}`,
+      { media }
+    );
+  }
+  async snoopChannelWithId(channelId, snoopId, options) {
+    const queryParams = toQueryParams2(options);
+    return this.baseClient.post(
+      `/channels/${channelId}/snoop/${snoopId}?${queryParams}`
+    );
+  }
+  async startMohWithClass(channelId, mohClass) {
+    const queryParams = `mohClass=${encodeURIComponent(mohClass)}`;
+    await this.baseClient.post(
+      `/channels/${channelId}/moh?${queryParams}`
+    );
+  }
+  async getChannelVariable(channelId, variable) {
+    if (!variable) {
+      throw new Error("The 'variable' parameter is required.");
+    }
+    return this.baseClient.get(
+      `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`
+    );
+  }
+  async setChannelVariable(channelId, variable, value) {
+    if (!variable) {
+      throw new Error("The 'variable' parameter is required.");
+    }
+    const queryParams = new URLSearchParams({
+      variable,
+      ...value && { value }
+    });
+    await this.baseClient.post(
+      `/channels/${channelId}/variable?${queryParams}`
+    );
+  }
+  async moveToApplication(channelId, app, appArgs) {
+    await this.baseClient.post(`/channels/${channelId}/move`, {
+      app,
+      appArgs
+    });
+  }
   async continueDialplan(channelId, context, extension, priority, label) {
-    return this.client.post(`/channels/${channelId}/continue`, {
+    await this.baseClient.post(`/channels/${channelId}/continue`, {
       context,
       extension,
       priority,
       label
     });
   }
-  /**
-   * Moves the channel to another Stasis application.
-   */
-  async moveToApplication(channelId, app, appArgs) {
-    return this.client.post(`/channels/${channelId}/move`, {
-      app,
-      appArgs
-    });
-  }
-  /**
-   * Sets a channel variable.
-   */
-  async setVariable(channelId, variable, value) {
-    return this.client.post(`/channels/${channelId}/variable`, {
-      variable,
-      value
-    });
-  }
-  /**
-   * Gets a channel variable.
-   */
-  async getVariable(channelId, variable) {
-    return this.client.get(
-      `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`
-    );
-  }
-  /**
-   * Plays a media file to a channel.
-   */
-  async playMedia(channelId, media, options) {
-    const queryParams = options ? `?${new URLSearchParams(options).toString()}` : "";
-    return this.client.post(
-      `/channels/${channelId}/play${queryParams}`,
-      { media }
-    );
-  }
-  /**
-   * Starts music on hold (MOH) for a channel.
-   */
-  async startMusicOnHold(channelId) {
-    return this.client.post(`/channels/${channelId}/moh`);
-  }
-  /**
-   * Stops music on hold (MOH) for a channel.
-   */
   async stopMusicOnHold(channelId) {
-    return this.client.delete(`/channels/${channelId}/moh`);
+    await this.baseClient.delete(`/channels/${channelId}/moh`);
   }
-  /**
-   * Starts playback of a media file on a channel.
-   */
-  async startPlayback(channelId, media, options) {
-    const queryParams = options ? `?${new URLSearchParams(options).toString()}` : "";
-    return this.client.post(
-      `/channels/${channelId}/play${queryParams}`,
-      { media }
-    );
+  async startMusicOnHold(channelId) {
+    await this.baseClient.post(`/channels/${channelId}/moh`);
   }
-  /**
-   * Stops playback of a media file on a channel.
-   */
-  async stopPlayback(channelId, playbackId) {
-    return this.client.delete(
-      `/channels/${channelId}/play/${playbackId}`
-    );
-  }
-  /**
-   * Pauses playback of a media file on a channel.
-   */
-  async pausePlayback(channelId, playbackId) {
-    return this.client.post(
-      `/channels/${channelId}/play/${playbackId}/pause`
-    );
-  }
-  /**
-   * Resumes playback of a media file on a channel.
-   */
-  async resumePlayback(channelId, playbackId) {
-    return this.client.delete(
-      `/channels/${channelId}/play/${playbackId}/pause`
-    );
-  }
-  /**
-   * Rewinds playback of a media file on a channel.
-   */
-  async rewindPlayback(channelId, playbackId, skipMs) {
-    return this.client.post(
-      `/channels/${channelId}/play/${playbackId}/rewind`,
-      { skipMs }
-    );
-  }
-  /**
-   * Fast-forwards playback of a media file on a channel.
-   */
-  async fastForwardPlayback(channelId, playbackId, skipMs) {
-    return this.client.post(
-      `/channels/${channelId}/play/${playbackId}/forward`,
-      { skipMs }
-    );
-  }
-  /**
-   * Records audio from a channel.
-   */
   async record(channelId, options) {
-    const queryParams = new URLSearchParams(
-      Object.entries(options).filter(
-        ([, value]) => value !== void 0
-      )
-    );
-    return this.client.post(
-      `/channels/${channelId}/record?${queryParams.toString()}`
-    );
-  }
-  /**
-   * Starts snooping on a channel.
-   */
-  async snoopChannel(channelId, options) {
     const queryParams = toQueryParams2(options);
-    return this.client.post(
-      `/channels/${channelId}/snoop?${queryParams}`
+    return this.baseClient.post(
+      `/channels/${channelId}/record?${queryParams}`
     );
   }
-  /**
-   * Starts snooping on a channel with a specific snoop ID.
-   */
-  async snoopChannelWithId(channelId, snoopId, options) {
-    const queryParams = new URLSearchParams(options);
-    return this.client.post(
-      `/channels/${channelId}/snoop/${snoopId}?${queryParams.toString()}`
-    );
-  }
-  /**
-   * Dials a created channel.
-   */
   async dial(channelId, caller, timeout) {
     const queryParams = new URLSearchParams({
       ...caller && { caller },
       ...timeout && { timeout: timeout.toString() }
     });
-    return this.client.post(
-      `/channels/${channelId}/dial?${queryParams.toString()}`
+    await this.baseClient.post(
+      `/channels/${channelId}/dial?${queryParams}`
     );
   }
-  /**
-   * Retrieves RTP statistics for a channel.
-   */
-  async getRTPStatistics(channelId) {
-    return this.client.get(`/channels/${channelId}/rtp_statistics`);
-  }
-  /**
-   * Creates a channel to an external media source/sink.
-   */
-  async createExternalMedia(options) {
-    const queryParams = new URLSearchParams(options);
-    return this.client.post(
-      `/channels/externalMedia?${queryParams.toString()}`
-    );
-  }
-  /**
-   * Redirects the channel to a different location.
-   */
   async redirectChannel(channelId, endpoint) {
-    return this.client.post(
+    await this.baseClient.post(
       `/channels/${channelId}/redirect?endpoint=${encodeURIComponent(endpoint)}`
     );
   }
-  /**
-   * Answers a channel.
-   */
   async answerChannel(channelId) {
-    return this.client.post(`/channels/${channelId}/answer`);
+    await this.baseClient.post(`/channels/${channelId}/answer`);
   }
-  /**
-   * Sends a ringing indication to a channel.
-   */
   async ringChannel(channelId) {
-    return this.client.post(`/channels/${channelId}/ring`);
+    await this.baseClient.post(`/channels/${channelId}/ring`);
   }
-  /**
-   * Stops ringing indication on a channel.
-   */
   async stopRingChannel(channelId) {
-    return this.client.delete(`/channels/${channelId}/ring`);
+    await this.baseClient.delete(`/channels/${channelId}/ring`);
   }
-  /**
-   * Sends DTMF to a channel.
-   */
   async sendDTMF(channelId, dtmf, options) {
-    const queryParams = new URLSearchParams({
-      dtmf,
-      ...options?.before && { before: options.before.toString() },
-      ...options?.between && { between: options.between.toString() },
-      ...options?.duration && { duration: options.duration.toString() },
-      ...options?.after && { after: options.after.toString() }
-    });
-    return this.client.post(
-      `/channels/${channelId}/dtmf?${queryParams.toString()}`
+    const queryParams = toQueryParams2({ dtmf, ...options });
+    await this.baseClient.post(
+      `/channels/${channelId}/dtmf?${queryParams}`
     );
   }
-  /**
-   * Mutes a channel.
-   */
   async muteChannel(channelId, direction = "both") {
-    return this.client.post(
+    await this.baseClient.post(
       `/channels/${channelId}/mute?direction=${direction}`
     );
   }
-  /**
-   * Unmutes a channel.
-   */
   async unmuteChannel(channelId, direction = "both") {
-    return this.client.delete(
+    await this.baseClient.delete(
       `/channels/${channelId}/mute?direction=${direction}`
     );
   }
-  /**
-   * Puts a channel on hold.
-   */
   async holdChannel(channelId) {
-    return this.client.post(`/channels/${channelId}/hold`);
+    await this.baseClient.post(`/channels/${channelId}/hold`);
   }
-  /**
-   * Removes a channel from hold.
-   */
   async unholdChannel(channelId) {
-    return this.client.delete(`/channels/${channelId}/hold`);
+    await this.baseClient.delete(`/channels/${channelId}/hold`);
+  }
+  async createChannel(data) {
+    return this.baseClient.post("/channels/create", data);
+  }
+  async originateWithId(channelId, data) {
+    return this.baseClient.post(`/channels/${channelId}`, data);
   }
 };
 
@@ -1068,40 +1515,158 @@ var Endpoints = class {
 };
 
 // src/ari-client/resources/playbacks.ts
-var Playbacks = class {
-  constructor(client) {
+import { EventEmitter as EventEmitter2 } from "events";
+var PlaybackInstance = class {
+  constructor(client, baseClient, playbackId = `playback-${Date.now()}`) {
     this.client = client;
+    this.baseClient = baseClient;
+    this.playbackId = playbackId;
+    this.id = playbackId;
+  }
+  eventEmitter = new EventEmitter2();
+  playbackData = null;
+  id;
+  /**
+   * Registra um listener para eventos específicos deste playback.
+   */
+  on(event, listener) {
+    const wrappedListener = (data) => {
+      if ("playback" in data && data.playback?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.on(event, wrappedListener);
   }
   /**
-   * Retrieves details of a specific playback.
-   *
-   * @param playbackId - The unique identifier of the playback.
-   * @returns A promise that resolves to a Playback object containing the details of the specified playback.
+   * Registra um listener único para eventos específicos deste playback.
    */
-  async getDetails(playbackId) {
-    return this.client.get(`/playbacks/${playbackId}`);
+  once(event, listener) {
+    const wrappedListener = (data) => {
+      if ("playback" in data && data.playback?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.once(event, wrappedListener);
   }
   /**
-   * Controls a specific playback (e.g., pause, resume, rewind, forward, stop).
-   *
-   * @param playbackId - The unique identifier of the playback to control.
-   * @param controlRequest - The PlaybackControlRequest containing the control operation.
-   * @returns A promise that resolves when the control operation is successfully executed.
+   * Remove um listener para eventos específicos deste playback.
    */
-  async control(playbackId, controlRequest) {
-    await this.client.post(
-      `/playbacks/${playbackId}/control`,
-      controlRequest
+  off(event, listener) {
+    if (listener) {
+      this.eventEmitter.off(event, listener);
+    } else {
+      this.eventEmitter.removeAllListeners(event);
+    }
+  }
+  /**
+   * Emite eventos internamente para o playback.
+   */
+  emitEvent(event) {
+    if ("playback" in event && event.playback?.id === this.id) {
+      this.eventEmitter.emit(event.type, event);
+    }
+  }
+  /**
+   * Obtém os detalhes do playback.
+   */
+  async get() {
+    if (!this.id) {
+      throw new Error("Nenhum playback associado a esta inst\xE2ncia.");
+    }
+    this.playbackData = await this.baseClient.get(
+      `/playbacks/${this.id}`
+    );
+    return this.playbackData;
+  }
+  /**
+   * Controla o playback.
+   */
+  async control(operation) {
+    if (!this.id) {
+      throw new Error("Nenhum playback associado para controlar.");
+    }
+    await this.baseClient.post(
+      `/playbacks/${this.id}/control?operation=${operation}`
     );
   }
   /**
-   * Stops a specific playback.
-   *
-   * @param playbackId - The unique identifier of the playback to stop.
-   * @returns A promise that resolves when the playback is successfully stopped.
+   * Encerra o playback.
+   */
+  async stop() {
+    if (!this.id) {
+      throw new Error("Nenhum playback associado para encerrar.");
+    }
+    await this.baseClient.delete(`/playbacks/${this.id}`);
+  }
+  /**
+   * Remove todos os listeners para este playback.
+   */
+  removeAllListeners() {
+    this.eventEmitter.removeAllListeners();
+  }
+};
+var Playbacks = class {
+  constructor(baseClient, client) {
+    this.baseClient = baseClient;
+    this.client = client;
+  }
+  playbackInstances = /* @__PURE__ */ new Map();
+  /**
+   * Gerencia instâncias de playback.
+   */
+  Playback({ id }) {
+    if (!id) {
+      const instance = new PlaybackInstance(this.client, this.baseClient);
+      this.playbackInstances.set(instance.id, instance);
+      return instance;
+    }
+    if (!this.playbackInstances.has(id)) {
+      const instance = new PlaybackInstance(this.client, this.baseClient, id);
+      this.playbackInstances.set(id, instance);
+      return instance;
+    }
+    return this.playbackInstances.get(id);
+  }
+  /**
+   * Remove uma instância de playback.
+   */
+  removePlaybackInstance(playbackId) {
+    if (this.playbackInstances.has(playbackId)) {
+      const instance = this.playbackInstances.get(playbackId);
+      instance?.removeAllListeners();
+      this.playbackInstances.delete(playbackId);
+    }
+  }
+  /**
+   * Propaga eventos do WebSocket para o playback correspondente.
+   */
+  propagateEventToPlayback(event) {
+    if ("playback" in event && event.playback?.id) {
+      const instance = this.playbackInstances.get(event.playback.id);
+      if (instance) {
+        instance.emitEvent(event);
+      }
+    }
+  }
+  /**
+   * Obtém detalhes de um playback específico.
+   */
+  async getDetails(playbackId) {
+    return this.baseClient.get(`/playbacks/${playbackId}`);
+  }
+  /**
+   * Controla um playback específico.
+   */
+  async control(playbackId, operation) {
+    const playback = this.Playback({ id: playbackId });
+    await playback.control(operation);
+  }
+  /**
+   * Encerra um playback específico.
    */
   async stop(playbackId) {
-    await this.client.post(`/playbacks/${playbackId}/stop`);
+    const playback = this.Playback({ id: playbackId });
+    await playback.stop();
   }
 };
 
@@ -1137,86 +1702,140 @@ var Sounds = class {
 };
 
 // src/ari-client/websocketClient.ts
+var import_exponential_backoff = __toESM(require_backoff(), 1);
+import { EventEmitter as EventEmitter3 } from "events";
 import WebSocket from "ws";
-var WebSocketClient = class {
-  // Para evitar reconexões paralelas
-  constructor(url) {
-    this.url = url;
+var WebSocketClient = class extends EventEmitter3 {
+  constructor(baseClient, apps, subscribedEvents, ariClient) {
+    super();
+    this.baseClient = baseClient;
+    this.apps = apps;
+    this.subscribedEvents = subscribedEvents;
+    this.ariClient = ariClient;
   }
-  ws = null;
-  isClosedManually = false;
-  // Para evitar reconexões automáticas quando fechado manualmente
+  ws;
   isReconnecting = false;
+  maxReconnectAttempts = 10;
+  backOffOptions = {
+    numOfAttempts: 10,
+    // Máximo de tentativas de reconexão
+    startingDelay: 500,
+    // Início com 500ms de atraso
+    maxDelay: 1e4,
+    // Limite máximo de atraso de 10s
+    timeMultiple: 2,
+    // Atraso aumenta exponencialmente
+    jitter: "full",
+    // Randomização para evitar colisões
+    delayFirstAttempt: false,
+    // Não atrase a primeira tentativa
+    retry: (error, attemptNumber) => {
+      console.warn(
+        `Tentativa #${attemptNumber} falhou:`,
+        error.message || error
+      );
+      return true;
+    }
+  };
+  /**
+   * Conecta ao WebSocket.
+   */
   async connect() {
-    if (this.isReconnecting) return;
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.url);
-      this.ws.on("open", () => {
-        console.log("WebSocket conectado.");
-        this.isClosedManually = false;
-        this.isReconnecting = false;
-        resolve();
-      });
-      this.ws.on("error", (err) => {
-        console.error("Erro na conex\xE3o WebSocket:", err);
-        reject(err);
-      });
-      this.ws.on("close", (code, reason) => {
-        console.warn(`WebSocket desconectado: ${code} - ${reason}`);
-        this.isReconnecting = false;
-      });
-    });
-  }
-  async reconnect() {
-    if (this.isClosedManually || this.isReconnecting) return;
-    console.log("Tentando reconectar ao WebSocket...");
-    this.isReconnecting = true;
-    try {
-      await this.connect();
-      console.log("Reconex\xE3o bem-sucedida.");
-    } catch (err) {
-      console.error("Erro ao tentar reconectar:", err);
-    } finally {
-      this.isReconnecting = false;
-    }
-  }
-  isConnected() {
-    return this.ws?.readyState === WebSocket.OPEN;
-  }
-  on(event, callback) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket n\xE3o est\xE1 conectado.");
-    }
-    if (event === "message") {
-      this.ws.on(event, (data) => {
-        try {
-          const decodedData = JSON.parse(data.toString());
-          callback(decodedData);
-        } catch (err) {
-          console.error("Erro ao decodificar mensagem do WebSocket:", err);
-          callback(data);
-        }
-      });
+    const { baseUrl, username, password } = this.baseClient.getCredentials();
+    const protocol = baseUrl.startsWith("https") ? "wss" : "ws";
+    const normalizedHost = baseUrl.replace(/^https?:\/\//, "").replace(/\/ari$/, "");
+    const queryParams = new URLSearchParams();
+    queryParams.append("app", this.apps.join(","));
+    if (this.subscribedEvents && this.subscribedEvents.length > 0) {
+      this.subscribedEvents.forEach(
+        (event) => queryParams.append("event", event)
+      );
     } else {
-      this.ws.on(event, callback);
+      queryParams.append("subscribeAll", "true");
     }
+    const wsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    console.log("Conectando ao WebSocket em:", wsUrl);
+    return this.initializeWebSocket(wsUrl);
   }
-  send(data) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("WebSocket n\xE3o est\xE1 conectado.");
-    }
-    this.ws.send(data, (err) => {
-      if (err) {
-        console.error("Erro ao enviar dados pelo WebSocket:", err);
+  /**
+   * Inicializa a conexão WebSocket com lógica de reconexão.
+   */
+  async initializeWebSocket(wsUrl) {
+    return (0, import_exponential_backoff.backOff)(async () => {
+      return new Promise((resolve, reject) => {
+        this.ws = new WebSocket(wsUrl);
+        this.ws.on("open", () => {
+          console.log("WebSocket conectado com sucesso.");
+          this.isReconnecting = false;
+          this.emit("connected");
+          resolve();
+        });
+        this.ws.on("message", (data) => this.handleMessage(data.toString()));
+        this.ws.on("close", (code) => {
+          console.warn(
+            `WebSocket desconectado com c\xF3digo ${code}. Tentando reconectar...`
+          );
+          if (!this.isReconnecting) {
+            this.reconnect(wsUrl);
+          }
+        });
+        this.ws.on("error", (err) => {
+          console.error("Erro no WebSocket:", err.message);
+          if (!this.isReconnecting) {
+            this.reconnect(wsUrl);
+          }
+          reject(err);
+        });
+      });
+    }, this.backOffOptions);
+  }
+  /**
+   * Processa as mensagens recebidas do WebSocket.
+   */
+  handleMessage(rawMessage) {
+    try {
+      const event = JSON.parse(rawMessage);
+      if (this.subscribedEvents && !this.subscribedEvents.includes(event.type)) {
+        return;
       }
-    });
-  }
-  close() {
-    if (this.ws) {
-      this.isClosedManually = true;
-      this.ws.close();
-      console.log("WebSocket fechado manualmente.");
+      if ("channel" in event && event.channel?.id && this.ariClient) {
+        const instanceChannel = this.ariClient.Channel(event.channel.id);
+        instanceChannel.emitEvent(event);
+        event.instanceChannel = instanceChannel;
+      }
+      if ("playback" in event && event.playback?.id && this.ariClient) {
+        const instancePlayback = this.ariClient.Playback(event.playback.id);
+        instancePlayback.emitEvent(event);
+        event.instancePlayback = instancePlayback;
+      }
+      this.emit(event.type, event);
+    } catch (err) {
+      console.error("Erro ao processar mensagem WebSocket:", err);
+      this.emit("error", new Error("Falha ao decodificar mensagem WebSocket."));
     }
+  }
+  /**
+   * Tenta reconectar ao WebSocket.
+   */
+  reconnect(wsUrl) {
+    this.isReconnecting = true;
+    console.log("Iniciando tentativa de reconex\xE3o...");
+    this.removeAllListeners();
+    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
+      (err) => {
+        console.error(
+          "Falha ao reconectar ap\xF3s v\xE1rias tentativas:",
+          err.message || err
+        );
+      }
+    );
+  }
+  /**
+   * Fecha o WebSocket manualmente.
+   */
+  close() {
+    this.ws?.close();
+    this.ws = void 0;
   }
 };
 
@@ -1228,515 +1847,86 @@ var AriClient = class {
     const normalizedHost = config.host.replace(/^https?:\/\//, "");
     const baseUrl = `${httpProtocol}://${normalizedHost}:${config.port}/ari`;
     this.baseClient = new BaseClient(baseUrl, config.username, config.password);
-    this.channels = new Channels(this.baseClient);
+    this.channels = new Channels(this.baseClient, this);
+    this.playbacks = new Playbacks(this.baseClient, this);
     this.endpoints = new Endpoints(this.baseClient);
     this.applications = new Applications(this.baseClient);
-    this.playbacks = new Playbacks(this.baseClient);
     this.sounds = new Sounds(this.baseClient);
     this.asterisk = new Asterisk(this.baseClient);
+    this.bridges = new Bridges(this.baseClient);
   }
-  wsClient = null;
   baseClient;
-  isReconnecting = false;
+  webSocketClient;
   channels;
   endpoints;
   applications;
   playbacks;
   sounds;
   asterisk;
+  bridges;
   /**
-   * Connects to the ARI WebSocket for a specific application.
-   *
-   * @param app - The application name to connect to.
-   * @returns {Promise<void>} Resolves when the WebSocket connects successfully.
+   * Inicializa uma conexão WebSocket.
    */
-  async connectWebSocket(app) {
-    if (!app) {
-      throw new Error(
-        "The 'app' parameter is required to connect to the WebSocket."
-      );
-    }
-    if (this.isReconnecting) {
-      console.warn("Already attempting to reconnect. Skipping this attempt.");
+  async connectWebSocket(apps, subscribedEvents) {
+    if (this.webSocketClient) {
+      console.warn("WebSocket j\xE1 est\xE1 conectado.");
       return;
     }
-    this.isReconnecting = true;
-    const protocol = this.config.secure ? "wss" : "ws";
-    const wsUrl = `${protocol}://${encodeURIComponent(this.config.username)}:${encodeURIComponent(this.config.password)}@${this.config.host}:${this.config.port}/ari/events?app=${app}`;
-    const backoffOptions = {
-      delayFirstAttempt: false,
-      startingDelay: 1e3,
-      timeMultiple: 2,
-      maxDelay: 3e4,
-      numOfAttempts: 10,
-      jitter: "full",
-      retry: (error, attemptNumber) => {
-        console.warn(`Tentativa ${attemptNumber} falhou: ${error.message}`);
-        return !this.wsClient?.isConnected();
-      }
-    };
-    this.wsClient = new WebSocketClient(wsUrl);
-    try {
-      await (0, import_exponential_backoff.backOff)(async () => {
-        if (!this.wsClient) {
-          throw new Error("WebSocketClient instance is null.");
-        }
-        await this.wsClient.connect();
-        console.log(`WebSocket conectado para o app: ${app}`);
-        await this.ensureAppRegistered(app);
-      }, backoffOptions);
-    } catch (err) {
-      console.error(
-        "N\xE3o foi poss\xEDvel conectar ao WebSocket ap\xF3s m\xFAltiplas tentativas:",
-        err
-      );
-      throw err;
-    } finally {
-      this.isReconnecting = false;
-    }
+    this.webSocketClient = new WebSocketClient(
+      this.baseClient,
+      apps,
+      subscribedEvents,
+      this
+    );
+    await this.webSocketClient.connect();
   }
   /**
-   * Ensures the ARI application is registered.
-   *
-   * @param app - The application name to ensure is registered.
-   * @returns {Promise<void>}
+   * Adiciona um listener para eventos do WebSocket.
    */
-  async ensureAppRegistered(app) {
-    try {
-      const apps = await this.baseClient.get("/applications");
-      const appExists = apps.some((a) => a.name === app);
-      if (!appExists) {
-        console.log(`Registrando o aplicativo ARI: ${app}`);
-        await this.baseClient.post("/applications", { app });
-        console.log(`Aplicativo ${app} registrado com sucesso.`);
-      } else {
-        console.log(`Aplicativo ${app} j\xE1 est\xE1 registrado.`);
-      }
-    } catch (error) {
-      console.error(`Erro ao garantir o registro do aplicativo ${app}:`, error);
-      throw error;
-    }
+  on(event, listener) {
+    this.webSocketClient?.on(event, listener);
   }
   /**
-   * Checks if the WebSocket connection is active.
-   *
-   * @returns {boolean} True if connected, false otherwise.
+   * Adiciona um listener único para eventos do WebSocket.
    */
-  isWebSocketConnected() {
-    return this.wsClient ? this.wsClient.isConnected() : false;
+  once(event, listener) {
+    this.webSocketClient?.once(event, listener);
   }
   /**
-   * Registers a callback for a specific WebSocket event.
-   *
-   * @param event - The WebSocket event to listen for.
-   * @param callback - The callback function to execute when the event occurs.
+   * Remove um listener para eventos do WebSocket.
    */
-  onWebSocketEvent(event, callback) {
-    if (!this.wsClient) {
-      throw new Error("WebSocket is not connected.");
-    }
-    this.wsClient.on(event, callback);
+  off(event, listener) {
+    this.webSocketClient?.off(event, listener);
   }
   /**
-   * Closes the WebSocket connection.
+   * Fecha a conexão WebSocket.
    */
   closeWebSocket() {
-    if (this.wsClient) {
-      this.wsClient.close();
-      this.wsClient = null;
-    }
+    this.webSocketClient?.close();
+    this.webSocketClient = void 0;
   }
   /**
-   * Retrieves a list of active channels from the Asterisk ARI.
-   *
-   * @returns {Promise<Channel[]>} A promise resolving to the list of active channels.
+   * Inicializa uma nova instância de `ChannelInstance` para manipular canais localmente.
    */
-  /**
-   * Lists all active channels.
-   */
-  async listChannels() {
-    return this.channels.list();
+  Channel(channelId) {
+    return this.channels.Channel({ id: channelId });
   }
   /**
-   * Creates a new channel.
+   * Inicializa uma nova instância de `PlaybackInstance` para manipular playbacks.
    */
-  async originateChannel(data) {
-    return this.channels.originate(data);
-  }
-  /**
-   * Retrieves details of a specific channel.
-   */
-  async getChannelDetails(channelId) {
-    return this.channels.getDetails(channelId);
-  }
-  /**
-   * Hangs up a specific channel.
-   */
-  async hangupChannel(channelId) {
-    return this.channels.hangup(channelId);
-  }
-  /**
-   * Continues the dialplan for a specific channel.
-   */
-  async continueChannelDialplan(channelId, context, extension, priority, label) {
-    return this.channels.continueDialplan(
-      channelId,
-      context,
-      extension,
-      priority,
-      label
-    );
-  }
-  /**
-   * Moves a channel to another Stasis application.
-   */
-  async moveChannelToApplication(channelId, app, appArgs) {
-    return this.channels.moveToApplication(channelId, app, appArgs);
-  }
-  /**
-   * Sets a channel variable.
-   */
-  async setChannelVariable(channelId, variable, value) {
-    return this.channels.setVariable(channelId, variable, value);
-  }
-  /**
-   * Gets a channel variable.
-   */
-  async getChannelVariable(channelId, variable) {
-    return this.channels.getVariable(channelId, variable);
-  }
-  /**
-   * Plays a media file to a channel.
-   */
-  async playMediaToChannel(channelId, media, options) {
-    return this.channels.playMedia(channelId, media, options);
-  }
-  /**
-   * Starts music on hold for a channel.
-   */
-  async startChannelMusicOnHold(channelId) {
-    return this.channels.startMusicOnHold(channelId);
-  }
-  /**
-   * Stops music on hold for a channel.
-   */
-  async stopChannelMusicOnHold(channelId) {
-    return this.channels.stopMusicOnHold(channelId);
-  }
-  /**
-   * Starts playback of a media file on a channel.
-   */
-  async startChannelPlayback(channelId, media, options) {
-    return this.channels.startPlayback(channelId, media, options);
-  }
-  /**
-   * Stops playback of a media file on a channel.
-   */
-  async stopChannelPlayback(channelId, playbackId) {
-    return this.channels.stopPlayback(channelId, playbackId);
-  }
-  /**
-   * Pauses playback of a media file on a channel.
-   */
-  async pauseChannelPlayback(channelId, playbackId) {
-    return this.channels.pausePlayback(channelId, playbackId);
-  }
-  /**
-   * Resumes playback of a media file on a channel.
-   */
-  async resumeChannelPlayback(channelId, playbackId) {
-    return this.channels.resumePlayback(channelId, playbackId);
-  }
-  /**
-   * Rewinds playback of a media file on a channel.
-   */
-  async rewindChannelPlayback(channelId, playbackId, skipMs) {
-    return this.channels.rewindPlayback(channelId, playbackId, skipMs);
-  }
-  /**
-   * Fast-forwards playback of a media file on a channel.
-   */
-  async fastForwardChannelPlayback(channelId, playbackId, skipMs) {
-    return this.channels.fastForwardPlayback(channelId, playbackId, skipMs);
-  }
-  /**
-   * Records audio from a channel.
-   */
-  async recordAudio(channelId, options) {
-    return this.channels.record(channelId, options);
-  }
-  /**
-   * Starts snooping on a channel.
-   */
-  async snoopChannel(channelId, options) {
-    return this.channels.snoopChannel(channelId, options);
-  }
-  /**
-   * Starts snooping on a channel with a specific snoop ID.
-   */
-  async snoopChannelWithId(channelId, snoopId, options) {
-    return this.channels.snoopChannelWithId(channelId, snoopId, options);
-  }
-  /**
-   * Dials a created channel.
-   */
-  async dialChannel(channelId, caller, timeout) {
-    return this.channels.dial(channelId, caller, timeout);
-  }
-  /**
-   * Retrieves RTP statistics for a channel.
-   */
-  async getRTPStatistics(channelId) {
-    return this.channels.getRTPStatistics(channelId);
-  }
-  /**
-   * Creates a channel to an external media source/sink.
-   */
-  async createExternalMedia(options) {
-    return this.channels.createExternalMedia(options);
-  }
-  /**
-   * Redirects a channel to a different location.
-   */
-  async redirectChannel(channelId, endpoint) {
-    return this.channels.redirectChannel(channelId, endpoint);
-  }
-  /**
-   * Answers a channel.
-   */
-  async answerChannel(channelId) {
-    return this.channels.answerChannel(channelId);
-  }
-  /**
-   * Sends a ringing indication to a channel.
-   */
-  async ringChannel(channelId) {
-    return this.channels.ringChannel(channelId);
-  }
-  /**
-   * Stops ringing indication on a channel.
-   */
-  async stopRingChannel(channelId) {
-    return this.channels.stopRingChannel(channelId);
-  }
-  /**
-   * Sends DTMF to a channel.
-   */
-  async sendDTMF(channelId, dtmf, options) {
-    return this.channels.sendDTMF(channelId, dtmf, options);
-  }
-  /**
-   * Mutes a channel.
-   */
-  async muteChannel(channelId, direction = "both") {
-    return this.channels.muteChannel(channelId, direction);
-  }
-  /**
-   * Unmutes a channel.
-   */
-  async unmuteChannel(channelId, direction = "both") {
-    return this.channels.unmuteChannel(channelId, direction);
-  }
-  /**
-   * Puts a channel on hold.
-   */
-  async holdChannel(channelId) {
-    return this.channels.holdChannel(channelId);
-  }
-  /**
-   * Removes a channel from hold.
-   */
-  async unholdChannel(channelId) {
-    return this.channels.unholdChannel(channelId);
-  }
-  /**
-   * Creates a new channel using the provided originate request data.
-   *
-   * @param data - The originate request data containing channel creation parameters.
-   * @returns A promise that resolves to the created Channel object.
-   */
-  async createChannel(data) {
-    return this.channels.createChannel(data);
-  }
-  /**
-   * Hangs up a specific channel.
-   *
-   * @param channelId - The unique identifier of the channel to hang up.
-   * @param options - Optional parameters for the hangup operation.
-   * @param options.reason_code - An optional reason code for the hangup.
-   * @param options.reason - An optional textual reason for the hangup.
-   * @returns A promise that resolves when the hangup operation is complete.
-   */
-  async hangup(channelId, options) {
-    return this.channels.hangup(channelId, options);
-  }
-  /**
-   * Originates a new channel with a specified ID using the provided originate request data.
-   *
-   * @param channelId - The desired unique identifier for the new channel.
-   * @param data - The originate request data containing channel creation parameters.
-   * @returns A promise that resolves to the created Channel object.
-   */
-  async originateWithId(channelId, data) {
-    return this.channels.originateWithId(channelId, data);
-  }
-  // Métodos relacionados a endpoints:
-  /**
-   * Lists all endpoints.
-   *
-   * @returns {Promise<Endpoint[]>} A promise resolving to the list of endpoints.
-   */
-  async listEndpoints() {
-    return this.endpoints.list();
-  }
-  /**
-   * Retrieves details of a specific endpoint.
-   *
-   * @param technology - The technology of the endpoint.
-   * @param resource - The resource name of the endpoint.
-   * @returns {Promise<EndpointDetails>} A promise resolving to the details of the endpoint.
-   */
-  async getEndpointDetails(technology, resource) {
-    return this.endpoints.getDetails(technology, resource);
-  }
-  /**
-   * Sends a message to an endpoint.
-   *
-   * @param technology - The technology of the endpoint.
-   * @param resource - The resource name of the endpoint.
-   * @param body - The message body to send.
-   * @returns {Promise<void>} A promise resolving when the message is sent.
-   */
-  async sendMessageToEndpoint(technology, resource, body) {
-    return this.endpoints.sendMessage(technology, resource, body);
-  }
-  // Métodos relacionados a applications
-  /**
-   * Lists all applications.
-   *
-   * @returns {Promise<Application[]>} A promise resolving to the list of applications.
-   */
-  async listApplications() {
-    return this.applications.list();
-  }
-  /**
-   * Retrieves details of a specific application.
-   *
-   * @param appName - The name of the application.
-   * @returns {Promise<ApplicationDetails>} A promise resolving to the application details.
-   */
-  async getApplicationDetails(appName) {
-    return this.applications.getDetails(appName);
-  }
-  /**
-   * Sends a message to a specific application.
-   *
-   * @param appName - The name of the application.
-   * @param body - The message body to send.
-   * @returns {Promise<void>} A promise resolving when the message is sent successfully.
-   */
-  async sendMessageToApplication(appName, body) {
-    return this.applications.sendMessage(appName, body);
-  }
-  // Métodos relacionados a playbacks
-  /**
-   * Retrieves details of a specific playback.
-   *
-   * @param playbackId - The unique identifier of the playback.
-   * @returns {Promise<Playback>} A promise resolving to the playback details.
-   */
-  async getPlaybackDetails(playbackId) {
-    return this.playbacks.getDetails(playbackId);
-  }
-  /**
-   * Controls a specific playback.
-   *
-   * @param playbackId - The unique identifier of the playback.
-   * @param controlRequest - The PlaybackControlRequest containing the control operation.
-   * @returns {Promise<void>} A promise resolving when the control operation is successfully executed.
-   */
-  async controlPlayback(playbackId, controlRequest) {
-    return this.playbacks.control(playbackId, controlRequest);
-  }
-  /**
-   * Stops a specific playback.
-   *
-   * @param playbackId - The unique identifier of the playback.
-   * @returns {Promise<void>} A promise resolving when the playback is successfully stopped.
-   */
-  async stopPlayback(playbackId) {
-    return this.playbacks.stop(playbackId);
-  }
-  /**
-   * Lists all available sounds.
-   *
-   * @param params - Optional parameters to filter the list of sounds.
-   * @returns {Promise<Sound[]>} A promise resolving to the list of sounds.
-   */
-  async listSounds(params) {
-    return this.sounds.list(params);
-  }
-  /**
-   * Retrieves details of a specific sound.
-   *
-   * @param soundId - The unique identifier of the sound.
-   * @returns {Promise<Sound>} A promise resolving to the sound details.
-   */
-  async getSoundDetails(soundId) {
-    return this.sounds.getDetails(soundId);
-  }
-  /**
-   * Retrieves information about the Asterisk server.
-   */
-  async getAsteriskInfo() {
-    return this.asterisk.getInfo();
-  }
-  /**
-   * Lists all loaded modules in the Asterisk server.
-   */
-  async listModules() {
-    return this.asterisk.listModules();
-  }
-  /**
-   * Manages a specific module in the Asterisk server.
-   */
-  async manageModule(moduleName, action) {
-    return this.asterisk.manageModule(moduleName, action);
-  }
-  /**
-   * Retrieves all configured logging channels.
-   */
-  async listLoggingChannels() {
-    return this.asterisk.listLoggingChannels();
-  }
-  /**
-   * Adds or removes a log channel in the Asterisk server.
-   */
-  async manageLogChannel(logChannelName, action, configuration) {
-    return this.asterisk.manageLogChannel(
-      logChannelName,
-      action,
-      configuration
-    );
-  }
-  /**
-   * Retrieves the value of a global variable.
-   */
-  async getGlobalVariable(variableName) {
-    return this.asterisk.getGlobalVariable(variableName);
-  }
-  /**
-   * Sets a global variable.
-   */
-  async setGlobalVariable(variableName, value) {
-    return this.asterisk.setGlobalVariable(variableName, value);
+  Playback(playbackId, _app) {
+    return this.playbacks.Playback({ id: playbackId });
   }
 };
 export {
   Applications,
   AriClient,
+  Asterisk,
+  Bridges,
+  ChannelInstance,
   Channels,
   Endpoints,
+  PlaybackInstance,
   Playbacks,
   Sounds
 };

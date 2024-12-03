@@ -1,7 +1,7 @@
 export interface Channel {
     id: string;
     name: string;
-    state: string;
+    state: "Down" | "Rsrved" | "OffHook" | "Dialing" | "Ring" | "Ringing" | "Up" | "Busy" | "Dialing Offhook" | "Pre-ring" | "Unknown";
     caller: {
         number: string;
         name: string;
@@ -35,6 +35,8 @@ export interface ChannelDialplan {
     context: string;
     exten: string;
     priority: number;
+    app_name?: string;
+    app_data?: string;
 }
 export interface ChannelVar {
     variable: string;

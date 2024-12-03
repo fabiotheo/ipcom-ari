@@ -1,154 +1,177 @@
+import type { AriClient } from "../ariClient";
 import type { BaseClient } from "../baseClient.js";
-import type { Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions } from "../interfaces/channels.types.js";
-export declare class Channels {
+import type { Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, WebSocketEvent } from "../interfaces";
+import type { PlaybackInstance } from "./playbacks";
+export declare class ChannelInstance {
     private client;
-    constructor(client: BaseClient);
+    private baseClient;
+    private channelId;
+    private eventEmitter;
+    private channelData;
+    id: string;
+    constructor(client: AriClient, baseClient: BaseClient, channelId?: string);
     /**
-     * Lists all active channels.
+     * Registra um listener para eventos específicos deste canal.
      */
-    list(): Promise<Channel[]>;
+    on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+        type: T;
+    }>) => void): void;
     /**
-     * Creates a new channel.
+     * Registra um listener único para eventos específicos deste canal.
+     */
+    once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+        type: T;
+    }>) => void): void;
+    /**
+     * Remove um listener para eventos específicos deste canal.
+     */
+    off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
+        type: T;
+    }>) => void): void;
+    /**
+     * Obtém a quantidade de listeners registrados para o evento especificado.
+     */
+    getListenerCount(event: string): number;
+    /**
+     * Emite eventos internamente para o canal.
+     * Verifica o ID do canal antes de emitir.
+     */
+    emitEvent(event: WebSocketEvent): void;
+    /**
+     * Remove todos os listeners para este canal.
+     */
+    removeAllListeners(): void;
+    answer(): Promise<void>;
+    /**
+     * Origina um canal físico no Asterisk.
      */
     originate(data: OriginateRequest): Promise<Channel>;
     /**
-     * Retrieves details of a specific channel.
+     * Obtém os detalhes do canal.
+     */
+    getDetails(): Promise<Channel>;
+    getVariable(variable: string): Promise<ChannelVar>;
+    /**
+     * Encerra o canal, se ele já foi criado.
+     */
+    hangup(): Promise<void>;
+    /**
+     * Reproduz mídia no canal.
+     */
+    play(options: {
+        media: string;
+        lang?: string;
+    }, playbackId?: string): Promise<PlaybackInstance>;
+    /**
+     * Reproduz mídia em um canal.
+     */
+    playMedia(media: string, options?: PlaybackOptions): Promise<ChannelPlayback>;
+    /**
+     * Para a reprodução de mídia.
+     */
+    stopPlayback(playbackId: string): Promise<void>;
+    /**
+     * Pausa a reprodução de mídia.
+     */
+    pausePlayback(playbackId: string): Promise<void>;
+    /**
+     * Retoma a reprodução de mídia.
+     */
+    resumePlayback(playbackId: string): Promise<void>;
+    /**
+     * Retrocede a reprodução de mídia.
+     */
+    rewindPlayback(playbackId: string, skipMs: number): Promise<void>;
+    /**
+     * Avança a reprodução de mídia.
+     */
+    fastForwardPlayback(playbackId: string, skipMs: number): Promise<void>;
+    /**
+     * Muta o canal.
+     */
+    muteChannel(direction?: "both" | "in" | "out"): Promise<void>;
+    /**
+     * Desmuta o canal.
+     */
+    unmuteChannel(direction?: "both" | "in" | "out"): Promise<void>;
+    /**
+     * Coloca o canal em espera.
+     */
+    holdChannel(): Promise<void>;
+    /**
+     * Remove o canal da espera.
+     */
+    unholdChannel(): Promise<void>;
+}
+export declare class Channels {
+    private baseClient;
+    private client;
+    private channelInstances;
+    constructor(baseClient: BaseClient, client: AriClient);
+    Channel({ id }: {
+        id?: string;
+    }): ChannelInstance;
+    /**
+     * Remove uma instância de canal.
+     */
+    removeChannelInstance(channelId: string): void;
+    /**
+     * Propaga eventos do WebSocket para o canal correspondente.
+     */
+    propagateEventToChannel(event: WebSocketEvent): void;
+    /**
+     * Origina um canal físico diretamente, sem uma instância de `ChannelInstance`.
+     */
+    originate(data: OriginateRequest): Promise<Channel>;
+    /**
+     * Obtém detalhes de um canal específico.
      */
     getDetails(channelId: string): Promise<Channel>;
     /**
-     * Creates a channel and places it in a Stasis app without dialing it.
+     * Lista todos os canais ativos.
      */
-    createChannel(data: OriginateRequest): Promise<Channel>;
+    list(): Promise<Channel[]>;
     /**
-     * Creates a new channel with a specific ID and originates a call.
-     */
-    originateWithId(channelId: string, data: OriginateRequest): Promise<Channel>;
-    /**
-     * Hangs up (terminates) a specific channel.
-     */
-    /**
-     * Hangs up a specific channel with optional reason or reason code.
+     * Encerra um canal específico.
      */
     hangup(channelId: string, options?: {
         reason_code?: string;
         reason?: string;
     }): Promise<void>;
     /**
-     * Continues the dialplan for a specific channel.
-     */
-    continueDialplan(channelId: string, context?: string, extension?: string, priority?: number, label?: string): Promise<void>;
-    /**
-     * Moves the channel to another Stasis application.
-     */
-    moveToApplication(channelId: string, app: string, appArgs?: string): Promise<void>;
-    /**
-     * Sets a channel variable.
-     */
-    setVariable(channelId: string, variable: string, value: string): Promise<void>;
-    /**
-     * Gets a channel variable.
-     */
-    getVariable(channelId: string, variable: string): Promise<ChannelVar>;
-    /**
-     * Plays a media file to a channel.
-     */
-    playMedia(channelId: string, media: string, options?: PlaybackOptions): Promise<ChannelPlayback>;
-    /**
-     * Starts music on hold (MOH) for a channel.
-     */
-    startMusicOnHold(channelId: string): Promise<void>;
-    /**
-     * Stops music on hold (MOH) for a channel.
-     */
-    stopMusicOnHold(channelId: string): Promise<void>;
-    /**
-     * Starts playback of a media file on a channel.
-     */
-    startPlayback(channelId: string, media: string, options?: PlaybackOptions): Promise<ChannelPlayback>;
-    /**
-     * Stops playback of a media file on a channel.
-     */
-    stopPlayback(channelId: string, playbackId: string): Promise<void>;
-    /**
-     * Pauses playback of a media file on a channel.
-     */
-    pausePlayback(channelId: string, playbackId: string): Promise<void>;
-    /**
-     * Resumes playback of a media file on a channel.
-     */
-    resumePlayback(channelId: string, playbackId: string): Promise<void>;
-    /**
-     * Rewinds playback of a media file on a channel.
-     */
-    rewindPlayback(channelId: string, playbackId: string, skipMs: number): Promise<void>;
-    /**
-     * Fast-forwards playback of a media file on a channel.
-     */
-    fastForwardPlayback(channelId: string, playbackId: string, skipMs: number): Promise<void>;
-    /**
-     * Records audio from a channel.
-     */
-    record(channelId: string, options: RecordingOptions): Promise<Channel>;
-    /**
-     * Starts snooping on a channel.
+     * Inicia a escuta em um canal.
      */
     snoopChannel(channelId: string, options: SnoopOptions): Promise<Channel>;
-    /**
-     * Starts snooping on a channel with a specific snoop ID.
-     */
-    snoopChannelWithId(channelId: string, snoopId: string, options: SnoopOptions): Promise<Channel>;
-    /**
-     * Dials a created channel.
-     */
-    dial(channelId: string, caller?: string, timeout?: number): Promise<void>;
-    /**
-     * Retrieves RTP statistics for a channel.
-     */
+    startSilence(channelId: string): Promise<void>;
+    stopSilence(channelId: string): Promise<void>;
     getRTPStatistics(channelId: string): Promise<RTPStats>;
-    /**
-     * Creates a channel to an external media source/sink.
-     */
     createExternalMedia(options: ExternalMediaOptions): Promise<Channel>;
-    /**
-     * Redirects the channel to a different location.
-     */
+    playWithId(channelId: string, playbackId: string, media: string, options?: PlaybackOptions): Promise<ChannelPlayback>;
+    snoopChannelWithId(channelId: string, snoopId: string, options: SnoopOptions): Promise<Channel>;
+    startMohWithClass(channelId: string, mohClass: string): Promise<void>;
+    getChannelVariable(channelId: string, variable: string): Promise<ChannelVar>;
+    setChannelVariable(channelId: string, variable: string, value?: string): Promise<void>;
+    moveToApplication(channelId: string, app: string, appArgs?: string): Promise<void>;
+    continueDialplan(channelId: string, context?: string, extension?: string, priority?: number, label?: string): Promise<void>;
+    stopMusicOnHold(channelId: string): Promise<void>;
+    startMusicOnHold(channelId: string): Promise<void>;
+    record(channelId: string, options: RecordingOptions): Promise<Channel>;
+    dial(channelId: string, caller?: string, timeout?: number): Promise<void>;
     redirectChannel(channelId: string, endpoint: string): Promise<void>;
-    /**
-     * Answers a channel.
-     */
     answerChannel(channelId: string): Promise<void>;
-    /**
-     * Sends a ringing indication to a channel.
-     */
     ringChannel(channelId: string): Promise<void>;
-    /**
-     * Stops ringing indication on a channel.
-     */
     stopRingChannel(channelId: string): Promise<void>;
-    /**
-     * Sends DTMF to a channel.
-     */
     sendDTMF(channelId: string, dtmf: string, options?: {
         before?: number;
         between?: number;
         duration?: number;
         after?: number;
     }): Promise<void>;
-    /**
-     * Mutes a channel.
-     */
     muteChannel(channelId: string, direction?: "both" | "in" | "out"): Promise<void>;
-    /**
-     * Unmutes a channel.
-     */
     unmuteChannel(channelId: string, direction?: "both" | "in" | "out"): Promise<void>;
-    /**
-     * Puts a channel on hold.
-     */
     holdChannel(channelId: string): Promise<void>;
-    /**
-     * Removes a channel from hold.
-     */
     unholdChannel(channelId: string): Promise<void>;
+    createChannel(data: OriginateRequest): Promise<Channel>;
+    originateWithId(channelId: string, data: OriginateRequest): Promise<Channel>;
 }
 //# sourceMappingURL=channels.d.ts.map

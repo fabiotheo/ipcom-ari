@@ -1,20 +1,25 @@
 import type { BaseClient } from "../baseClient.js";
-import type { AsteriskInfo, Logging, Module, Variable } from "../interfaces/asterisk.types.js";
+import type { AsteriskInfo, Logging, Module, Variable } from "../interfaces";
 export declare class Asterisk {
     private client;
     constructor(client: BaseClient);
     /**
      * Retrieves information about the Asterisk server.
      */
-    getInfo(): Promise<AsteriskInfo>;
+    get(): Promise<AsteriskInfo>;
     /**
      * Lists all loaded modules in the Asterisk server.
      */
-    listModules(): Promise<Module[]>;
+    list(): Promise<Module[]>;
     /**
      * Manages a specific module in the Asterisk server.
+     *
+     * @param moduleName - The name of the module to manage.
+     * @param action - The action to perform on the module: "load", "unload", or "reload".
+     * @returns A promise that resolves when the action is completed successfully.
+     * @throws {Error} Throws an error if the HTTP method or action is invalid.
      */
-    manageModule(moduleName: string, action: "load" | "unload" | "reload"): Promise<void>;
+    manage(moduleName: string, action: "load" | "unload" | "reload"): Promise<void>;
     /**
      * Retrieves all configured logging channels.
      */

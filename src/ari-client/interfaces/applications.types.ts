@@ -1,10 +1,10 @@
+import type { WebSocketEvent } from "./events.types";
+
 export interface Application {
   name: string;
-  description?: string; // Opcional, dependendo da resposta do ARI
+  description?: string; // Descrição opcional do aplicativo
 }
 
-export interface ApplicationDetails {
-  name: string;
-  description?: string;
-  subscribedEvents?: string[]; // Lista de eventos aos quais o aplicativo está inscrito
+export interface ApplicationDetails extends Application {
+  subscribedEvents?: WebSocketEvent["type"][]; // Lista de eventos específicos
 }

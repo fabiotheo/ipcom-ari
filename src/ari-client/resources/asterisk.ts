@@ -1,10 +1,5 @@
 import type { BaseClient } from "../baseClient.js";
-import type {
-  AsteriskInfo,
-  Logging,
-  Module,
-  Variable,
-} from "../interfaces/asterisk.types.js";
+import type { AsteriskInfo, Logging, Module, Variable } from "../interfaces";
 
 function toQueryParams<T>(options: T): string {
   return new URLSearchParams(
@@ -20,27 +15,43 @@ export class Asterisk {
   /**
    * Retrieves information about the Asterisk server.
    */
-  async getInfo(): Promise<AsteriskInfo> {
+  async get(): Promise<AsteriskInfo> {
     return this.client.get<AsteriskInfo>("/asterisk/info");
   }
 
   /**
    * Lists all loaded modules in the Asterisk server.
    */
-  async listModules(): Promise<Module[]> {
+  async list(): Promise<Module[]> {
     return this.client.get<Module[]>("/asterisk/modules");
   }
 
   /**
    * Manages a specific module in the Asterisk server.
+   *
+   * @param moduleName - The name of the module to manage.
+   * @param action - The action to perform on the module: "load", "unload", or "reload".
+   * @returns A promise that resolves when the action is completed successfully.
+   * @throws {Error} Throws an error if the HTTP method or action is invalid.
    */
-  async manageModule(
+  async manage(
     moduleName: string,
     action: "load" | "unload" | "reload",
   ): Promise<void> {
-    return this.client.post<void>(
-      `/asterisk/modules/${moduleName}?action=${encodeURIComponent(action)}`,
-    );
+    const url = `/asterisk/modules/${moduleName}`;
+    switch (action) {
+      case "load":
+        await this.client.post<void>(`${url}?action=load`);
+        break;
+      case "unload":
+        await this.client.delete<void>(url);
+        break;
+      case "reload":
+        await this.client.put<void>(url, {});
+        break;
+      default:
+        throw new Error(`Ação inválida: ${action}`);
+    }
   }
 
   /**
