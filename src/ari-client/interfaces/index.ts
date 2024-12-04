@@ -15,7 +15,13 @@ export type { Endpoint, EndpointDetails } from "./endpoints.types.js";
 export type { Playback, PlaybackControlRequest } from "./playbacks.types.js";
 export type { Application, ApplicationDetails } from "./applications.types.js";
 export type { Sound, SoundListRequest } from "./sounds.types.js";
-export type { AsteriskInfo, Module, Logging, Variable } from "./asterisk.types";
+export type {
+  AsteriskInfo,
+  Module,
+  Logging,
+  Variable,
+  AsteriskPing,
+} from "./asterisk.types";
 export type {
   WebSocketEvent,
   WebSocketEventType,

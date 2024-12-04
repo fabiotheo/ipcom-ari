@@ -49,4 +49,5 @@ export type {
   AddChannelRequest,
   ChannelEvent,
   PlaybackEvent,
+  AsteriskPing,
 } from "./ari-client/interfaces/index.js";

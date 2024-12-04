@@ -36,4 +36,9 @@ export interface Variable {
     name: string;
     value: string;
 }
+export interface AsteriskPing {
+    asterisk_id: string;
+    ping: string;
+    timestamp: string;
+}
 //# sourceMappingURL=asterisk.types.d.ts.map

@@ -803,6 +803,9 @@ var Asterisk = class {
   constructor(client) {
     this.client = client;
   }
+  async ping() {
+    return this.client.get("/asterisk/ping");
+  }
   /**
    * Retrieves information about the Asterisk server.
    */

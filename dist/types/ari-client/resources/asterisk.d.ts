@@ -1,8 +1,9 @@
 import type { BaseClient } from "../baseClient.js";
-import type { AsteriskInfo, Logging, Module, Variable } from "../interfaces";
+import type { AsteriskInfo, AsteriskPing, Logging, Module, Variable } from "../interfaces";
 export declare class Asterisk {
     private client;
     constructor(client: BaseClient);
+    ping(): Promise<AsteriskPing>;
     /**
      * Retrieves information about the Asterisk server.
      */

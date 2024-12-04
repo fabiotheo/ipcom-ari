@@ -43,3 +43,9 @@ export interface Variable {
   name: string; // Nome da variável
   value: string; // Valor associado à variável
 }
+
+export interface AsteriskPing {
+  asterisk_id: string; // Asterisk id info
+  ping: string; // Always string value is pong
+  timestamp: string; // The timestamp string of request received time
+}

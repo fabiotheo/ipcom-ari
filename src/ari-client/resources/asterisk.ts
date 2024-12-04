@@ -1,5 +1,11 @@
 import type { BaseClient } from "../baseClient.js";
-import type { AsteriskInfo, Logging, Module, Variable } from "../interfaces";
+import type {
+  AsteriskInfo,
+  AsteriskPing,
+  Logging,
+  Module,
+  Variable,
+} from "../interfaces";
 
 function toQueryParams<T>(options: T): string {
   return new URLSearchParams(
@@ -11,6 +17,10 @@ function toQueryParams<T>(options: T): string {
 
 export class Asterisk {
   constructor(private client: BaseClient) {}
+
+  async ping(): Promise<AsteriskPing> {
+    return this.client.get<AsteriskPing>("/asterisk/ping");
+  }
 
   /**
    * Retrieves information about the Asterisk server.
