@@ -1005,6 +1005,7 @@ var Bridges = class {
 
 // src/ari-client/resources/channels.ts
 import { EventEmitter } from "events";
+import { isAxiosError as isAxiosError2 } from "axios";
 
 // node_modules/uuid/dist/esm/stringify.js
 var byteToHex = [];
@@ -1059,7 +1060,6 @@ function toQueryParams2(options) {
 }
 
 // src/ari-client/resources/channels.ts
-import { isAxiosError as isAxiosError2 } from "axios";
 var getErrorMessage = (error) => {
   if (isAxiosError2(error)) {
     return error.response?.data?.message || error.message || "An axios error occurred";
@@ -1107,7 +1107,9 @@ var ChannelInstance = class {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(`One-time event listener registered for ${event} on channel ${this.id}`);
+    console.log(
+      `One-time event listener registered for ${event} on channel ${this.id}`
+    );
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -1124,7 +1126,9 @@ var ChannelInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(`Specific listener removed for ${event} on channel ${this.id}`);
+      console.log(
+        `Specific listener removed for ${event} on channel ${this.id}`
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
       console.log(`All listeners removed for ${event} on channel ${this.id}`);
@@ -1178,8 +1182,13 @@ var ChannelInstance = class {
       throw new Error("Channel has already been created");
     }
     try {
-      this.channelData = await this.baseClient.post("/channels", data);
-      console.log(`Channel originated successfully with ID: ${this.channelData.id}`);
+      this.channelData = await this.baseClient.post(
+        "/channels",
+        data
+      );
+      console.log(
+        `Channel originated successfully with ID: ${this.channelData.id}`
+      );
       return this.channelData;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1223,13 +1232,18 @@ var ChannelInstance = class {
       if (!this.id) {
         throw new Error("No channel ID associated with this instance");
       }
-      const details = await this.baseClient.get(`/channels/${this.id}`);
+      const details = await this.baseClient.get(
+        `/channels/${this.id}`
+      );
       this.channelData = details;
       console.log(`Retrieved channel details for ${this.id}`);
       return details;
     } catch (error) {
       const message = getErrorMessage(error);
-      console.error(`Error retrieving channel details for ${this.id}:`, message);
+      console.error(
+        `Error retrieving channel details for ${this.id}:`,
+        message
+      );
       throw new Error(`Failed to get channel details: ${message}`);
     }
   }
@@ -1438,10 +1452,23 @@ var Channels = class {
   }
   channelInstances = /* @__PURE__ */ new Map();
   /**
-   * Creates or retrieves a ChannelInstance based on the provided id.
+   * Creates or retrieves a ChannelInstance.
+   *
+   * @param {Object} [params] - Optional parameters for getting/creating a channel instance
+   * @param {string} [params.id] - Optional ID of an existing channel
+   * @returns {ChannelInstance} The requested or new channel instance
+   * @throws {Error} If channel creation/retrieval fails
+   *
+   * @example
+   * // Create new channel without ID
+   * const channel1 = client.channels.Channel();
+   *
+   * // Create/retrieve channel with specific ID
+   * const channel2 = client.channels.Channel({ id: 'some-id' });
    */
-  Channel({ id }) {
+  Channel(params) {
     try {
+      const id = params?.id;
       if (!id) {
         const instance = new ChannelInstance(this.client, this.baseClient);
         this.channelInstances.set(instance.id, instance);
@@ -1490,7 +1517,9 @@ var Channels = class {
       const instance = this.channelInstances.get(event.channel.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(`Event propagated to channel ${event.channel.id}: ${event.type}`);
+        console.log(
+          `Event propagated to channel ${event.channel.id}: ${event.type}`
+        );
       } else {
         console.warn(`No instance found for channel ${event.channel.id}`);
       }
@@ -1997,7 +2026,9 @@ var PlaybackInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(`Event listener registered for ${event} on playback ${this.id}`);
+    console.log(
+      `Event listener registered for ${event} on playback ${this.id}`
+    );
   }
   /**
    * Registers a one-time event listener for a specific WebSocket event type.
@@ -2015,7 +2046,9 @@ var PlaybackInstance = class {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(`One-time event listener registered for ${event} on playback ${this.id}`);
+    console.log(
+      `One-time event listener registered for ${event} on playback ${this.id}`
+    );
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -2029,7 +2062,9 @@ var PlaybackInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(`Specific listener removed for ${event} on playback ${this.id}`);
+      console.log(
+        `Specific listener removed for ${event} on playback ${this.id}`
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
       console.log(`All listeners removed for ${event} on playback ${this.id}`);
@@ -2086,7 +2121,9 @@ var PlaybackInstance = class {
       await this.baseClient.post(
         `/playbacks/${this.id}/control?operation=${operation}`
       );
-      console.log(`Operation ${operation} executed successfully on playback ${this.id}`);
+      console.log(
+        `Operation ${operation} executed successfully on playback ${this.id}`
+      );
     } catch (error) {
       const message = getErrorMessage2(error);
       console.error(`Error controlling playback ${this.id}:`, message);
@@ -2144,12 +2181,13 @@ var Playbacks = class {
   playbackInstances = /* @__PURE__ */ new Map();
   /**
    * Gets or creates a playback instance
-   * @param {Object} params - Parameters for getting/creating a playback instance
+   * @param {Object} [params] - Optional parameters for getting/creating a playback instance
    * @param {string} [params.id] - Optional ID of an existing playback
    * @returns {PlaybackInstance} The requested or new playback instance
    */
-  Playback({ id }) {
+  Playback(params) {
     try {
+      const id = params?.id;
       if (!id) {
         const instance = new PlaybackInstance(this.client, this.baseClient);
         this.playbackInstances.set(instance.id, instance);
@@ -2201,7 +2239,9 @@ var Playbacks = class {
       const instance = this.playbackInstances.get(event.playback.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(`Event propagated to playback ${event.playback.id}: ${event.type}`);
+        console.log(
+          `Event propagated to playback ${event.playback.id}: ${event.type}`
+        );
       } else {
         console.warn(`No instance found for playback ${event.playback.id}`);
       }

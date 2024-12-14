@@ -188,9 +188,21 @@ export declare class Channels {
     private readonly channelInstances;
     constructor(baseClient: BaseClient, client: AriClient);
     /**
-     * Creates or retrieves a ChannelInstance based on the provided id.
+     * Creates or retrieves a ChannelInstance.
+     *
+     * @param {Object} [params] - Optional parameters for getting/creating a channel instance
+     * @param {string} [params.id] - Optional ID of an existing channel
+     * @returns {ChannelInstance} The requested or new channel instance
+     * @throws {Error} If channel creation/retrieval fails
+     *
+     * @example
+     * // Create new channel without ID
+     * const channel1 = client.channels.Channel();
+     *
+     * // Create/retrieve channel with specific ID
+     * const channel2 = client.channels.Channel({ id: 'some-id' });
      */
-    Channel({ id }: {
+    Channel(params?: {
         id?: string;
     }): ChannelInstance;
     /**

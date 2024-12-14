@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { isAxiosError } from "axios";
 import { v4 as uuidv4 } from "uuid";
 import type { AriClient } from "../ariClient";
 import type { BaseClient } from "../baseClient.js";
@@ -16,19 +17,22 @@ import type {
 } from "../interfaces";
 import { toQueryParams } from "../utils";
 import type { PlaybackInstance } from "./playbacks";
-import {isAxiosError} from "axios";
 
 /**
  * Utility function to extract error message
  */
 const getErrorMessage = (error: unknown): string => {
   if (isAxiosError(error)) {
-    return error.response?.data?.message || error.message || 'An axios error occurred';
+    return (
+      error.response?.data?.message ||
+      error.message ||
+      "An axios error occurred"
+    );
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return 'An unknown error occurred';
+  return "An unknown error occurred";
 };
 
 /**
@@ -40,9 +44,9 @@ export class ChannelInstance {
   public readonly id: string;
 
   constructor(
-      private readonly client: AriClient,
-      private readonly baseClient: BaseClient,
-      channelId?: string,
+    private readonly client: AriClient,
+    private readonly baseClient: BaseClient,
+    channelId?: string,
   ) {
     this.id = channelId || `channel-${Date.now()}`;
     console.log(`Channel instance initialized with ID: ${this.id}`);
@@ -52,8 +56,8 @@ export class ChannelInstance {
    * Registers an event listener for specific channel events
    */
   on<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!event) {
       throw new Error("Event type is required");
@@ -72,8 +76,8 @@ export class ChannelInstance {
    * Registers a one-time event listener
    */
   once<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!event) {
       throw new Error("Event type is required");
@@ -85,7 +89,9 @@ export class ChannelInstance {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(`One-time event listener registered for ${event} on channel ${this.id}`);
+    console.log(
+      `One-time event listener registered for ${event} on channel ${this.id}`,
+    );
   }
 
   /**
@@ -98,8 +104,8 @@ export class ChannelInstance {
    * @throws {Error} If no event type is provided
    */
   off<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener?: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!event) {
       throw new Error("Event type is required");
@@ -107,7 +113,9 @@ export class ChannelInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(`Specific listener removed for ${event} on channel ${this.id}`);
+      console.log(
+        `Specific listener removed for ${event} on channel ${this.id}`,
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
       console.log(`All listeners removed for ${event} on channel ${this.id}`);
@@ -167,8 +175,13 @@ export class ChannelInstance {
     }
 
     try {
-      this.channelData = await this.baseClient.post<Channel, OriginateRequest>("/channels", data);
-      console.log(`Channel originated successfully with ID: ${this.channelData.id}`);
+      this.channelData = await this.baseClient.post<Channel, OriginateRequest>(
+        "/channels",
+        data,
+      );
+      console.log(
+        `Channel originated successfully with ID: ${this.channelData.id}`,
+      );
       return this.channelData;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -181,8 +194,8 @@ export class ChannelInstance {
    * Plays media on the channel
    */
   async play(
-      options: { media: string; lang?: string },
-      playbackId?: string,
+    options: { media: string; lang?: string },
+    playbackId?: string,
   ): Promise<PlaybackInstance> {
     if (!options.media) {
       throw new Error("Media URL is required");
@@ -196,8 +209,8 @@ export class ChannelInstance {
 
       const playback = this.client.Playback(playbackId || uuidv4());
       await this.baseClient.post<void>(
-          `/channels/${this.id}/play/${playback.id}`,
-          options,
+        `/channels/${this.id}/play/${playback.id}`,
+        options,
       );
 
       console.log(`Media playback started on channel ${this.id}`);
@@ -222,13 +235,18 @@ export class ChannelInstance {
         throw new Error("No channel ID associated with this instance");
       }
 
-      const details = await this.baseClient.get<Channel>(`/channels/${this.id}`);
+      const details = await this.baseClient.get<Channel>(
+        `/channels/${this.id}`,
+      );
       this.channelData = details;
       console.log(`Retrieved channel details for ${this.id}`);
       return details;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error retrieving channel details for ${this.id}:`, message);
+      console.error(
+        `Error retrieving channel details for ${this.id}:`,
+        message,
+      );
       throw new Error(`Failed to get channel details: ${message}`);
     }
   }
@@ -473,15 +491,29 @@ export class Channels {
   private readonly channelInstances = new Map<string, ChannelInstance>();
 
   constructor(
-      private readonly baseClient: BaseClient,
-      private readonly client: AriClient,
+    private readonly baseClient: BaseClient,
+    private readonly client: AriClient,
   ) {}
 
   /**
-   * Creates or retrieves a ChannelInstance based on the provided id.
+   * Creates or retrieves a ChannelInstance.
+   *
+   * @param {Object} [params] - Optional parameters for getting/creating a channel instance
+   * @param {string} [params.id] - Optional ID of an existing channel
+   * @returns {ChannelInstance} The requested or new channel instance
+   * @throws {Error} If channel creation/retrieval fails
+   *
+   * @example
+   * // Create new channel without ID
+   * const channel1 = client.channels.Channel();
+   *
+   * // Create/retrieve channel with specific ID
+   * const channel2 = client.channels.Channel({ id: 'some-id' });
    */
-  Channel({ id }: { id?: string }): ChannelInstance {
+  Channel(params?: { id?: string }): ChannelInstance {
     try {
+      const id = params?.id;
+
       if (!id) {
         const instance = new ChannelInstance(this.client, this.baseClient);
         this.channelInstances.set(instance.id, instance);
@@ -536,7 +568,9 @@ export class Channels {
       const instance = this.channelInstances.get(event.channel.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(`Event propagated to channel ${event.channel.id}: ${event.type}`);
+        console.log(
+          `Event propagated to channel ${event.channel.id}: ${event.type}`,
+        );
       } else {
         console.warn(`No instance found for channel ${event.channel.id}`);
       }

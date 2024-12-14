@@ -103,11 +103,11 @@ export declare class Playbacks {
     constructor(baseClient: BaseClient, client: AriClient);
     /**
      * Gets or creates a playback instance
-     * @param {Object} params - Parameters for getting/creating a playback instance
+     * @param {Object} [params] - Optional parameters for getting/creating a playback instance
      * @param {string} [params.id] - Optional ID of an existing playback
      * @returns {PlaybackInstance} The requested or new playback instance
      */
-    Playback({ id }: {
+    Playback(params?: {
         id?: string;
     }): PlaybackInstance;
     /**
