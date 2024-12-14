@@ -58,6 +58,63 @@ client.on('ChannelDtmfReceived', event => {
 client.closeWebSocket();
 ```
 
+## Event Instances
+
+### Channel and Playback Instances in Events
+
+When working with WebSocket events, you get access to both the raw event data and convenient instance objects that allow direct interaction with the channel or playback:
+
+```typescript
+client.on('StasisStart', async event => {
+  // event.channel contains the raw channel data
+  console.log('New channel started:', event.channel.id);
+
+  // event.instanceChannel provides a ready-to-use ChannelInstance
+  const channelInstance = event.instanceChannel;
+  
+  // You can directly interact with the channel through the instance
+  await channelInstance.answer();
+  await channelInstance.play({ media: 'sound:welcome' });
+});
+
+// Similarly for playback events
+client.on('PlaybackStarted', async event => {
+  // event.playback contains the raw playback data
+  console.log('Playback ID:', event.playback.id);
+
+  // event.instancePlayback provides a ready-to-use PlaybackInstance
+  const playbackInstance = event.instancePlayback;
+  
+  // Direct control through the instance
+  await playbackInstance.control('pause');
+});
+```
+
+This approach provides two key benefits:
+1. No need to manually create instances using `client.Channel()` or `client.Playback()`
+2. Direct access to control methods without additional setup
+
+### Comparing Approaches
+
+Traditional approach:
+```typescript
+client.on('StasisStart', async event => {
+  // Need to create channel instance manually
+  const channel = client.Channel(event.channel.id);
+  await channel.answer();
+});
+```
+
+Using instance from event:
+```typescript
+client.on('StasisStart', async event => {
+  // Instance is already available
+  await event.instanceChannel.answer();
+});
+```
+
+This feature is particularly useful when handling multiple events and needing to perform actions on channels or playbacks immediately within event handlers.
+
 ### Channel Handling
 
 ```typescript
