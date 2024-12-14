@@ -6,51 +6,100 @@ import { type ChannelInstance, Channels } from "./resources/channels.js";
 import { Endpoints } from "./resources/endpoints";
 import { type PlaybackInstance, Playbacks } from "./resources/playbacks";
 import { Sounds } from "./resources/sounds";
+/**
+ * Main client class for interacting with the Asterisk REST Interface (ARI).
+ * Provides access to various ARI resources and WebSocket event handling capabilities.
+ *
+ * @example
+ * ```typescript
+ * const client = new AriClient({
+ *   host: 'localhost',
+ *   port: 8088,
+ *   username: 'user',
+ *   password: 'secret'
+ * });
+ * ```
+ */
 export declare class AriClient {
-    private config;
+    private readonly config;
     private readonly baseClient;
     private webSocketClient?;
-    channels: Channels;
-    endpoints: Endpoints;
-    applications: Applications;
-    playbacks: Playbacks;
-    sounds: Sounds;
-    asterisk: Asterisk;
-    bridges: Bridges;
+    readonly channels: Channels;
+    readonly endpoints: Endpoints;
+    readonly applications: Applications;
+    readonly playbacks: Playbacks;
+    readonly sounds: Sounds;
+    readonly asterisk: Asterisk;
+    readonly bridges: Bridges;
+    /**
+     * Creates a new instance of the ARI client.
+     *
+     * @param {AriClientConfig} config - Configuration options for the ARI client
+     * @throws {Error} If required configuration parameters are missing
+     */
     constructor(config: AriClientConfig);
     /**
-     * Inicializa uma conexão WebSocket.
+     * Initializes a WebSocket connection for receiving events.
+     *
+     * @param {string[]} apps - List of application names to subscribe to
+     * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
+     * @returns {Promise<void>} Resolves when connection is established
+     * @throws {Error} If connection fails or if WebSocket is already connected
      */
     connectWebSocket(apps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
     /**
-     * Adiciona um listener para eventos do WebSocket.
+     * Registers an event listener for WebSocket events.
+     *
+     * @param {T} event - The event type to listen for
+     * @param {Function} listener - Callback function for handling the event
+     * @throws {Error} If WebSocket is not connected
      */
     on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
-     * Adiciona um listener único para eventos do WebSocket.
+     * Registers a one-time event listener for WebSocket events.
+     *
+     * @param {T} event - The event type to listen for
+     * @param {Function} listener - Callback function for handling the event
+     * @throws {Error} If WebSocket is not connected
      */
     once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
-     * Remove um listener para eventos do WebSocket.
+     * Removes an event listener for WebSocket events.
+     *
+     * @param {T} event - The event type to remove listener for
+     * @param {Function} listener - The listener function to remove
      */
     off<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
-     * Fecha a conexão WebSocket.
+     * Closes the WebSocket connection if one exists.
      */
     closeWebSocket(): void;
     /**
-     * Inicializa uma nova instância de `ChannelInstance` para manipular canais localmente.
+     * Creates or retrieves a Channel instance.
+     *
+     * @param {string} [channelId] - Optional ID of an existing channel
+     * @returns {ChannelInstance} A new or existing channel instance
      */
     Channel(channelId?: string): ChannelInstance;
     /**
-     * Inicializa uma nova instância de `PlaybackInstance` para manipular playbacks.
+     * Creates or retrieves a Playback instance.
+     *
+     * @param {string} [playbackId] - Optional ID of an existing playback
+     * @param {string} [_app] - Optional application name (deprecated)
+     * @returns {PlaybackInstance} A new or existing playback instance
      */
     Playback(playbackId?: string, _app?: string): PlaybackInstance;
+    /**
+     * Gets the current WebSocket connection status.
+     *
+     * @returns {boolean} True if WebSocket is connected, false otherwise
+     */
+    isWebSocketConnected(): boolean;
 }
 //# sourceMappingURL=ariClient.d.ts.map

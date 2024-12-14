@@ -1,36 +1,72 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  isAxiosError
+} from "axios";
 
-export class BaseClient {
-  private client: AxiosInstance;
-
+/**
+ * Custom error class for HTTP-related errors
+ */
+class HTTPError extends Error {
   constructor(
-    private baseUrl: string,
-    private username: string,
-    private password: string,
-    timeout = 5000, // Timeout configurável
+      message: string,
+      public readonly status?: number,
+      public readonly method?: string,
+      public readonly url?: string,
+  ) {
+    super(message);
+    this.name = 'HTTPError';
+  }
+}
+
+/**
+ * BaseClient handles HTTP communications with the ARI server.
+ * Provides methods for making HTTP requests and manages authentication and error handling.
+ */
+export class BaseClient {
+  private readonly client: AxiosInstance;
+
+  /**
+   * Creates a new BaseClient instance.
+   *
+   * @param {string} baseUrl - The base URL for the API
+   * @param {string} username - Username for authentication
+   * @param {string} password - Password for authentication
+   * @param {number} [timeout=5000] - Request timeout in milliseconds
+   * @throws {Error} If the base URL format is invalid
+   */
+  constructor(
+      private readonly baseUrl: string,
+      private readonly username: string,
+      private readonly password: string,
+      timeout = 5000,
   ) {
     if (!/^https?:\/\/.+/.test(baseUrl)) {
-      throw new Error(
-        "Invalid base URL. It must start with http:// or https://",
-      );
+      throw new Error("Invalid base URL. It must start with http:// or https://");
     }
 
     this.client = axios.create({
       baseURL: baseUrl,
       auth: { username, password },
       timeout,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    // Interceptores
     this.addInterceptors();
+    console.log(`BaseClient initialized for ${baseUrl}`);
   }
 
+  /**
+   * Gets the base URL of the client.
+   */
   public getBaseUrl(): string {
     return this.baseUrl;
   }
 
   /**
-   * Retorna as credenciais configuradas.
+   * Gets the configured credentials.
    */
   public getCredentials(): {
     baseUrl: string;
@@ -45,147 +81,179 @@ export class BaseClient {
   }
 
   /**
-   * Adds interceptors to the Axios instance.
+   * Adds request and response interceptors to the Axios instance.
    */
   private addInterceptors(): void {
-    // Interceptor para registrar requisições
     this.client.interceptors.request.use(
-      (config) => {
-        // Pode adicionar logs ou metadados aqui, se necessário
-        return config;
-      },
-      (error) => {
-        console.error("[Request Error]", error.message); // Log opcional
-        return Promise.reject(error);
-      },
+        (config) => {
+          console.log(`[Request] ${config.method?.toUpperCase()} ${config.url}`);
+          return config;
+        },
+        (error: unknown) => {
+          const message = this.getErrorMessage(error);
+          console.error("[Request Error]", message);
+          return Promise.reject(new HTTPError(message));
+        },
     );
 
-    // Interceptor para tratar respostas e erros
     this.client.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        const status = error.response?.status;
-        const message =
-          error.response?.data?.message || error.message || "Unknown error";
+        (response) => {
+          console.log(`[Response] ${response.status} ${response.config.url}`);
+          return response;
+        },
+        (error: unknown) => {
+          if (isAxiosError(error)) {
+            const status = error.response?.status ?? 0;
+            const method = error.config?.method?.toUpperCase() ?? 'UNKNOWN';
+            const url = error.config?.url ?? 'unknown-url';
+            const message = error.response?.data?.message || error.message || 'Unknown error';
 
-        const errorDetails = {
-          status,
-          message,
-          url: error.config?.url || "Unknown URL",
-          method: error.config?.method?.toUpperCase() || "Unknown Method",
-        };
+            if (status === 404) {
+              console.warn(`[404] Not Found: ${url}`);
+            } else if (status >= 500) {
+              console.error(`[${status}] Server Error: ${url}`);
+            } else if (status > 0) {
+              console.warn(`[${status}] ${method} ${url}: ${message}`);
+            } else {
+              console.error(`[Network] Request failed: ${message}`);
+            }
 
-        if (status === 404) {
-          console.warn(`[404] Not Found: ${errorDetails.url}`);
-        } else if (status >= 500) {
-          console.error(`[500] Server Error: ${errorDetails.url}`);
-        } else {
-          console.warn(
-            `[Response Error] ${errorDetails.method} ${errorDetails.url}: ${message}`,
-          );
-        }
+            throw new HTTPError(message, status || undefined, method, url);
+          }
 
-        // Cria um erro controlado com os detalhes
-        return Promise.reject(
-          new Error(
-            `[Error] ${errorDetails.method} ${errorDetails.url} - ${message} (Status: ${status})`,
-          ),
-        );
-      },
+          const message = this.getErrorMessage(error);
+          console.error("[Unexpected Error]", message);
+          throw new Error(message);
+        },
     );
   }
 
   /**
    * Executes a GET request.
-   * @param path - The API endpoint path.
-   * @param config - Optional Axios request configuration.
+   *
+   * @param path - API endpoint path
+   * @param config - Optional Axios request configuration
+   * @returns Promise with the response data
    */
   async get<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.client.get<T>(path, config);
       return response.data;
-    } catch (error) {
-      this.handleRequestError(error);
+    } catch (error: unknown) {
+      throw this.handleRequestError(error);
     }
   }
 
   /**
    * Executes a POST request.
-   * @param path - The API endpoint path.
-   * @param data - Optional payload to send with the request.
-   * @param config - Optional Axios request configuration.
+   *
+   * @param path - API endpoint path
+   * @param data - Request payload
+   * @param config - Optional Axios request configuration
+   * @returns Promise with the response data
    */
-  async post<T>(
-    path: string,
-    data?: Record<string, any>,
-    config?: AxiosRequestConfig,
+  async post<T, D = unknown>(
+      path: string,
+      data?: D,
+      config?: AxiosRequestConfig,
   ): Promise<T> {
     try {
       const response = await this.client.post<T>(path, data, config);
       return response.data;
-    } catch (error) {
-      this.handleRequestError(error);
+    } catch (error: unknown) {
+      throw this.handleRequestError(error);
     }
   }
 
   /**
    * Executes a PUT request.
-   * @param path - The API endpoint path.
-   * @param data - Payload to send with the request.
-   * @param config - Optional Axios request configuration.
+   *
+   * @param path - API endpoint path
+   * @param data - Request payload
+   * @param config - Optional Axios request configuration
+   * @returns Promise with the response data
    */
-  async put<T>(
-    path: string,
-    data: Record<string, any>,
-    config?: AxiosRequestConfig,
+  async put<T, D = unknown>(
+      path: string,
+      data: D,
+      config?: AxiosRequestConfig,
   ): Promise<T> {
     try {
       const response = await this.client.put<T>(path, data, config);
       return response.data;
-    } catch (error) {
-      this.handleRequestError(error);
+    } catch (error: unknown) {
+      throw this.handleRequestError(error);
     }
   }
 
   /**
    * Executes a DELETE request.
-   * @param path - The API endpoint path.
-   * @param config - Optional Axios request configuration.
+   *
+   * @param path - API endpoint path
+   * @param config - Optional Axios request configuration
+   * @returns Promise with the response data
    */
   async delete<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.client.delete<T>(path, config);
       return response.data;
-    } catch (error) {
-      this.handleRequestError(error);
+    } catch (error: unknown) {
+      throw this.handleRequestError(error);
     }
   }
 
   /**
-   * Handles errors for HTTP requests.
-   * @param error - The error to handle.
+   * Handles and formats error messages from various error types.
    */
-  private handleRequestError(error: any): never {
-    if (axios.isAxiosError(error)) {
-      // Erros provenientes do Axios
-      console.error(`[HTTP Error] ${error.message}`);
-      throw new Error(error.message || "HTTP Error");
-    } else {
-      // Outros erros não relacionados ao Axios
-      console.error(`[Unexpected Error] ${error}`);
-      throw error;
+  private getErrorMessage(error: unknown): string {
+    if (isAxiosError(error)) {
+      return error.response?.data?.message || error.message || "HTTP Error";
     }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return "An unknown error occurred";
+  }
+
+  /**
+   * Handles errors from HTTP requests.
+   */
+  private handleRequestError(error: unknown): never {
+    const message = this.getErrorMessage(error);
+    if (isAxiosError(error)) {
+      throw new HTTPError(
+          message,
+          error.response?.status,
+          error.config?.method?.toUpperCase(),
+          error.config?.url
+      );
+    }
+    throw new Error(message);
   }
 
   /**
    * Sets custom headers for the client instance.
-   * Useful for adding dynamic tokens or specific API headers.
-   * @param headers - Headers to merge with existing configuration.
    */
   setHeaders(headers: Record<string, string>): void {
     this.client.defaults.headers.common = {
       ...this.client.defaults.headers.common,
       ...headers,
     };
+    console.log("Updated client headers");
+  }
+
+  /**
+   * Gets the current request timeout setting.
+   */
+  getTimeout(): number {
+    return this.client.defaults.timeout || 5000;
+  }
+
+  /**
+   * Updates the request timeout setting.
+   */
+  setTimeout(timeout: number): void {
+    this.client.defaults.timeout = timeout;
+    console.log(`Updated timeout to ${timeout}ms`);
   }
 }

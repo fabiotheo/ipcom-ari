@@ -1,4 +1,4 @@
-import type { Channel, Playback, WebSocketEvent } from "./interfaces";
+import type { Channel, WebSocketEvent } from "./interfaces";
 
 export function toQueryParams<T>(options: T): string {
   return new URLSearchParams(

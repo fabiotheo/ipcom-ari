@@ -1,10 +1,34 @@
+/**
+ * @file Main entry point for the Asterisk REST Interface (ARI) client package
+ * @description This file exports all the necessary classes, types and interfaces for interacting with the ARI
+ */
+/**
+ * Main client class for interacting with Asterisk REST Interface
+ * @packageDocumentation
+ */
 export { AriClient } from "./ari-client/ariClient.js";
-export { Channels, ChannelInstance } from "./ari-client/resources/channels.js";
+/**
+ * Resource Classes
+ * These classes provide direct access to ARI resources
+ */
+export { Channels, ChannelInstance, } from "./ari-client/resources/channels.js";
 export { Endpoints } from "./ari-client/resources/endpoints.js";
 export { Applications } from "./ari-client/resources/applications.js";
 export { Sounds } from "./ari-client/resources/sounds.js";
 export { Playbacks, PlaybackInstance, } from "./ari-client/resources/playbacks.js";
 export { Asterisk } from "./ari-client/resources/asterisk.js";
 export { Bridges } from "./ari-client/resources/bridges.js";
-export type { AriClientConfig, Channel, Endpoint, Playback, Application, Sound, AsteriskInfo, Module, Logging, Variable, WebSocketEvent, WebSocketEventType, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, ExternalMediaOptions, ChannelPlayback, ChannelVar, ChannelDialplan, AriApplication, EndpointDetails, PlaybackControlRequest, ApplicationDetails, SoundListRequest, PlayMediaRequest, Bridge, BridgePlayback, CreateBridgeRequest, RemoveChannelRequest, AddChannelRequest, ChannelEvent, PlaybackEvent, AsteriskPing, } from "./ari-client/interfaces/index.js";
+/**
+ * Type Definitions
+ * These types and interfaces define the shape of data structures used throughout the API
+ */
+export type { AriClientConfig, AriApplication, } from "./ari-client/interfaces/index.js";
+export type { Channel, ChannelEvent, ChannelPlayback, ChannelVar, ChannelDialplan, OriginateRequest, RecordingOptions, SnoopOptions, ExternalMediaOptions, RTPStats, } from "./ari-client/interfaces/index.js";
+export type { Playback, PlaybackEvent, PlaybackOptions, PlaybackControlRequest, PlayMediaRequest, } from "./ari-client/interfaces/index.js";
+export type { Bridge, BridgePlayback, CreateBridgeRequest, RemoveChannelRequest, AddChannelRequest, } from "./ari-client/interfaces/index.js";
+export type { Endpoint, EndpointDetails, } from "./ari-client/interfaces/index.js";
+export type { Application, ApplicationDetails, } from "./ari-client/interfaces/index.js";
+export type { Sound, SoundListRequest, } from "./ari-client/interfaces/index.js";
+export type { AsteriskInfo, Module, Logging, Variable, AsteriskPing, } from "./ari-client/interfaces/index.js";
+export type { WebSocketEvent, WebSocketEventType, } from "./ari-client/interfaces/index.js";
 //# sourceMappingURL=index.d.ts.map

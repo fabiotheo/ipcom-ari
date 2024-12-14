@@ -1,13 +1,29 @@
 import { type AxiosRequestConfig } from "axios";
+/**
+ * BaseClient handles HTTP communications with the ARI server.
+ * Provides methods for making HTTP requests and manages authentication and error handling.
+ */
 export declare class BaseClient {
-    private baseUrl;
-    private username;
-    private password;
-    private client;
+    private readonly baseUrl;
+    private readonly username;
+    private readonly password;
+    private readonly client;
+    /**
+     * Creates a new BaseClient instance.
+     *
+     * @param {string} baseUrl - The base URL for the API
+     * @param {string} username - Username for authentication
+     * @param {string} password - Password for authentication
+     * @param {number} [timeout=5000] - Request timeout in milliseconds
+     * @throws {Error} If the base URL format is invalid
+     */
     constructor(baseUrl: string, username: string, password: string, timeout?: number);
+    /**
+     * Gets the base URL of the client.
+     */
     getBaseUrl(): string;
     /**
-     * Retorna as credenciais configuradas.
+     * Gets the configured credentials.
      */
     getCredentials(): {
         baseUrl: string;
@@ -15,45 +31,62 @@ export declare class BaseClient {
         password: string;
     };
     /**
-     * Adds interceptors to the Axios instance.
+     * Adds request and response interceptors to the Axios instance.
      */
     private addInterceptors;
     /**
      * Executes a GET request.
-     * @param path - The API endpoint path.
-     * @param config - Optional Axios request configuration.
+     *
+     * @param path - API endpoint path
+     * @param config - Optional Axios request configuration
+     * @returns Promise with the response data
      */
     get<T>(path: string, config?: AxiosRequestConfig): Promise<T>;
     /**
      * Executes a POST request.
-     * @param path - The API endpoint path.
-     * @param data - Optional payload to send with the request.
-     * @param config - Optional Axios request configuration.
+     *
+     * @param path - API endpoint path
+     * @param data - Request payload
+     * @param config - Optional Axios request configuration
+     * @returns Promise with the response data
      */
-    post<T>(path: string, data?: Record<string, any>, config?: AxiosRequestConfig): Promise<T>;
+    post<T, D = unknown>(path: string, data?: D, config?: AxiosRequestConfig): Promise<T>;
     /**
      * Executes a PUT request.
-     * @param path - The API endpoint path.
-     * @param data - Payload to send with the request.
-     * @param config - Optional Axios request configuration.
+     *
+     * @param path - API endpoint path
+     * @param data - Request payload
+     * @param config - Optional Axios request configuration
+     * @returns Promise with the response data
      */
-    put<T>(path: string, data: Record<string, any>, config?: AxiosRequestConfig): Promise<T>;
+    put<T, D = unknown>(path: string, data: D, config?: AxiosRequestConfig): Promise<T>;
     /**
      * Executes a DELETE request.
-     * @param path - The API endpoint path.
-     * @param config - Optional Axios request configuration.
+     *
+     * @param path - API endpoint path
+     * @param config - Optional Axios request configuration
+     * @returns Promise with the response data
      */
     delete<T>(path: string, config?: AxiosRequestConfig): Promise<T>;
     /**
-     * Handles errors for HTTP requests.
-     * @param error - The error to handle.
+     * Handles and formats error messages from various error types.
+     */
+    private getErrorMessage;
+    /**
+     * Handles errors from HTTP requests.
      */
     private handleRequestError;
     /**
      * Sets custom headers for the client instance.
-     * Useful for adding dynamic tokens or specific API headers.
-     * @param headers - Headers to merge with existing configuration.
      */
     setHeaders(headers: Record<string, string>): void;
+    /**
+     * Gets the current request timeout setting.
+     */
+    getTimeout(): number;
+    /**
+     * Updates the request timeout setting.
+     */
+    setTimeout(timeout: number): void;
 }
 //# sourceMappingURL=baseClient.d.ts.map
