@@ -538,6 +538,29 @@ export class Channels {
   }
 
   /**
+   * Retrieves the details of a specific channel.
+   *
+   * @param {string} id - The unique identifier of the channel to retrieve.
+   * @returns {Promise<Channel>} A promise that resolves to the Channel object containing the channel details.
+   * @throws {Error} If no channel ID is associated with this instance or if there's an error retrieving the channel details.
+   */
+  async get(id: string): Promise<Channel> {
+    try {
+      if (id) {
+        throw new Error("No channel ID associated with this instance");
+      }
+  
+      const details = await this.baseClient.get<Channel>(`/channels/${id}`);
+      console.log(`Retrieved channel details for ${id}`);
+      return details;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      console.error(`Error retrieving channel details for ${id}:`, message);
+      throw new Error(`Failed to get channel details: ${message}`);
+    }
+  }
+
+  /**
    * Removes a channel instance from the collection.
    */
   removeChannelInstance(channelId: string): void {
