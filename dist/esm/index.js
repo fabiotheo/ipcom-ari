@@ -1498,7 +1498,7 @@ var Channels = class {
    */
   async get(id) {
     try {
-      if (id) {
+      if (!id) {
         throw new Error("No channel ID associated with this instance");
       }
       const details = await this.baseClient.get(`/channels/${id}`);
