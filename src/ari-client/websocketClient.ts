@@ -27,8 +27,8 @@ export class WebSocketClient extends EventEmitter {
     delayFirstAttempt: false,
     retry: (error: Error, attemptNumber: number) => {
       console.warn(
-          `Connection attempt #${attemptNumber} failed:`,
-          error.message || 'Unknown error'
+        `Connection attempt #${attemptNumber} failed:`,
+        error.message || "Unknown error",
       );
       return attemptNumber < this.maxReconnectAttempts;
     },
@@ -43,10 +43,10 @@ export class WebSocketClient extends EventEmitter {
    * @param {AriClient} [ariClient] - Optional ARI client for handling channel and playback events
    */
   constructor(
-      private readonly baseClient: BaseClient,
-      private readonly apps: string[],
-      private readonly subscribedEvents?: WebSocketEventType[],
-      private readonly ariClient?: AriClient,
+    private readonly baseClient: BaseClient,
+    private readonly apps: string[],
+    private readonly subscribedEvents?: WebSocketEventType[],
+    private readonly ariClient?: AriClient,
   ) {
     super();
 
@@ -69,16 +69,16 @@ export class WebSocketClient extends EventEmitter {
 
     // Normalize host
     const normalizedHost = baseUrl
-        .replace(/^https?:\/\//, "")
-        .replace(/\/ari$/, "");
+      .replace(/^https?:\/\//, "")
+      .replace(/\/ari$/, "");
 
     // Prepare query parameters
     const queryParams = new URLSearchParams();
     queryParams.append("app", this.apps.join(","));
 
     if (this.subscribedEvents?.length) {
-      this.subscribedEvents.forEach(event =>
-          queryParams.append("event", event)
+      this.subscribedEvents.forEach((event) =>
+        queryParams.append("event", event),
       );
     } else {
       queryParams.append("subscribeAll", "true");
@@ -114,7 +114,7 @@ export class WebSocketClient extends EventEmitter {
 
           this.ws.on("close", (code) => {
             console.warn(
-                `WebSocket disconnected with code ${code}. Attempting to reconnect...`
+              `WebSocket disconnected with code ${code}. Attempting to reconnect...`,
             );
             if (!this.isReconnecting) {
               this.reconnect(wsUrl);
@@ -146,8 +146,8 @@ export class WebSocketClient extends EventEmitter {
 
       // Filter unsubscribed events
       if (
-          this.subscribedEvents?.length &&
-          !this.subscribedEvents.includes(event.type as WebSocketEventType)
+        this.subscribedEvents?.length &&
+        !this.subscribedEvents.includes(event.type as WebSocketEventType)
       ) {
         return;
       }
@@ -166,10 +166,20 @@ export class WebSocketClient extends EventEmitter {
         event.instancePlayback = instancePlayback;
       }
 
+      // Process bridges-related events
+      if ("bridge" in event && event.bridge?.id && this.ariClient) {
+        const instanceBridge = this.ariClient.Bridge(event.bridge.id);
+        instanceBridge.emitEvent(event);
+        event.instanceBridge = instanceBridge;
+      }
+
       this.emit(event.type, event);
       console.log(`Event processed: ${event.type}`);
     } catch (error) {
-      console.error("Error processing WebSocket message:", error instanceof Error ? error.message : 'Unknown error');
+      console.error(
+        "Error processing WebSocket message:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       this.emit("error", new Error("Failed to decode WebSocket message"));
     }
   }
@@ -184,14 +194,15 @@ export class WebSocketClient extends EventEmitter {
     console.log("Initiating reconnection attempt...");
     this.removeAllListeners();
 
-    backOff(() => this.initializeWebSocket(wsUrl), this.backOffOptions)
-        .catch((error) => {
-          console.error(
-              "Failed to reconnect after multiple attempts:",
-              error instanceof Error ? error.message : 'Unknown error'
-          );
-          this.emit("reconnectFailed", error);
-        });
+    backOff(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
+      (error) => {
+        console.error(
+          "Failed to reconnect after multiple attempts:",
+          error instanceof Error ? error.message : "Unknown error",
+        );
+        this.emit("reconnectFailed", error);
+      },
+    );
   }
 
   /**
@@ -205,8 +216,9 @@ export class WebSocketClient extends EventEmitter {
         console.log("WebSocket connection closed");
       }
     } catch (error) {
-      console.error("Error closing WebSocket:",
-          error instanceof Error ? error.message : 'Unknown error'
+      console.error(
+        "Error closing WebSocket:",
+        error instanceof Error ? error.message : "Unknown error",
       );
     }
   }

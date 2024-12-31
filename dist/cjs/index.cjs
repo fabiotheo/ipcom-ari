@@ -582,6 +582,7 @@ __export(src_exports, {
   Applications: () => Applications,
   AriClient: () => AriClient,
   Asterisk: () => Asterisk,
+  BridgeInstance: () => BridgeInstance,
   Bridges: () => Bridges,
   ChannelInstance: () => ChannelInstance,
   Channels: () => Channels,
@@ -935,97 +936,681 @@ var Asterisk = class {
 };
 
 // src/ari-client/resources/bridges.ts
+var import_events = require("events");
+var import_axios2 = require("axios");
+
+// src/ari-client/interfaces/events.types.ts
+var bridgeEvents = [
+  "BridgeCreated",
+  "BridgeDestroyed",
+  "BridgeMerged",
+  "BridgeBlindTransfer",
+  "BridgeAttendedTransfer",
+  "BridgeVideoSourceChanged"
+];
+
+// src/ari-client/utils.ts
+function toQueryParams2(options) {
+  return new URLSearchParams(
+    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, value])
+  ).toString();
+}
+
+// src/ari-client/resources/bridges.ts
+var getErrorMessage = (error) => {
+  if ((0, import_axios2.isAxiosError)(error)) {
+    return error.response?.data?.message || error.message || "Um erro do axios ocorreu";
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Um erro desconhecido ocorreu";
+};
+var BridgeInstance = class {
+  /**
+   * Creates a new BridgeInstance.
+   *
+   * @param client - The AriClient instance for making API calls.
+   * @param baseClient - The BaseClient instance for making HTTP requests.
+   * @param bridgeId - Optional. The ID of the bridge. If not provided, a new ID will be generated.
+   */
+  constructor(client, baseClient, bridgeId) {
+    this.client = client;
+    this.baseClient = baseClient;
+    this.id = bridgeId || `bridge-${Date.now()}`;
+    console.log(`BridgeInstance inicializada com ID: ${this.id}`);
+  }
+  eventEmitter = new import_events.EventEmitter();
+  bridgeData = null;
+  id;
+  /**
+   * Registers a listener for specific bridge events.
+   *
+   * @param event - The type of event to listen for.
+   * @param listener - The callback function to be called when the event occurs.
+   */
+  /**
+   * Registers a listener for specific bridge events.
+   *
+   * This method allows you to attach an event listener to the bridge instance for a specific event type.
+   * When the specified event occurs, the provided listener function will be called with the event data.
+   *
+   * @template T - The specific type of WebSocketEvent to listen for.
+   *                               It receives the event data as its parameter.
+   * @returns {void}
+   *
+   * @example
+   * bridge.on('BridgeCreated', (event) => {
+   *   console.log('Bridge created:', event.bridge.id);
+   * });
+   * @param event
+   * @param listener
+   */
+  on(event, listener) {
+    if (!event) {
+      throw new Error("Event type is required");
+    }
+    const wrappedListener = (data) => {
+      if ("bridge" in data && data.bridge?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.on(event, wrappedListener);
+    console.log(`Event listener registered for ${event} on bridge ${this.id}`);
+  }
+  /**
+   * Registers a one-time listener for specific bridge events.
+   *
+   * @param event - The type of event to listen for.
+   * @param listener - The callback function to be called when the event occurs.
+   */
+  once(event, listener) {
+    if (!event) {
+      throw new Error("Event type is required");
+    }
+    const wrappedListener = (data) => {
+      if ("bridge" in data && data.bridge?.id === this.id) {
+        listener(data);
+      }
+    };
+    this.eventEmitter.once(event, wrappedListener);
+    console.log(
+      `One-time listener registered for ${event} on bridge ${this.id}`
+    );
+  }
+  /**
+   * Removes event listener(s) from the bridge.
+   *
+   * @param event - The type of event to remove listeners for.
+   * @param listener - Optional. The specific listener to remove. If not provided, all listeners for the event will be removed.
+   */
+  off(event, listener) {
+    if (!event) {
+      throw new Error("Event type is required");
+    }
+    if (listener) {
+      this.eventEmitter.off(event, listener);
+      console.log(
+        `Specific listener removed for ${event} on bridge ${this.id}`
+      );
+    } else {
+      this.eventEmitter.removeAllListeners(event);
+      console.log(`All listeners removed for ${event} on bridge ${this.id}`);
+    }
+  }
+  /**
+   * Emits an event if it corresponds to the current bridge.
+   *
+   * @param event - The WebSocketEvent to emit.
+   */
+  emitEvent(event) {
+    if (!event) {
+      console.warn("Invalid event received");
+      return;
+    }
+    if ("bridge" in event && event.bridge?.id === this.id) {
+      this.eventEmitter.emit(event.type, event);
+      console.log(`Event ${event.type} emitted for bridge ${this.id}`);
+    }
+  }
+  /**
+   * Removes all event listeners from this bridge instance.
+   */
+  removeAllListeners() {
+    this.eventEmitter.removeAllListeners();
+    console.log(`All listeners removed from bridge ${this.id}`);
+  }
+  /**
+   * Retrieves the current details of the bridge.
+   *
+   * @returns A Promise that resolves to the Bridge object containing the current details.
+   * @throws An error if the retrieval fails.
+   */
+  async get() {
+    try {
+      if (!this.id) {
+        throw new Error("No bridge associated with this instance");
+      }
+      this.bridgeData = await this.baseClient.get(
+        `/bridges/${this.id}`
+      );
+      console.log(`Details retrieved for bridge ${this.id}`);
+      return this.bridgeData;
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error retrieving details for bridge ${this.id}:`, message);
+      throw new Error(`Failed to get bridge details: ${message}`);
+    }
+  }
+  /**
+   * Adds channels to the bridge.
+   *
+   * @param request - The AddChannelRequest object containing the channels to add.
+   * @throws An error if the operation fails.
+   */
+  async add(request) {
+    try {
+      const queryParams = toQueryParams2({
+        channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel,
+        ...request.role && { role: request.role }
+      });
+      await this.baseClient.post(
+        `/bridges/${this.id}/addChannel?${queryParams}`
+      );
+      console.log(`Channels added to bridge ${this.id}`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error adding channels to bridge ${this.id}:`, message);
+      throw new Error(`Failed to add channels: ${message}`);
+    }
+  }
+  /**
+   * Removes channels from the bridge.
+   *
+   * @param request - The RemoveChannelRequest object containing the channels to remove.
+   * @throws An error if the operation fails.
+   */
+  async remove(request) {
+    try {
+      const queryParams = toQueryParams2({
+        channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel
+      });
+      await this.baseClient.post(
+        `/bridges/${this.id}/removeChannel?${queryParams}`
+      );
+      console.log(`Channels removed from bridge ${this.id}`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error removing channels from bridge ${this.id}:`, message);
+      throw new Error(`Failed to remove channels: ${message}`);
+    }
+  }
+  /**
+   * Plays media on the bridge.
+   *
+   * @param request - The PlayMediaRequest object containing the media details to play.
+   * @returns A Promise that resolves to a BridgePlayback object.
+   * @throws An error if the operation fails.
+   */
+  async playMedia(request) {
+    try {
+      const queryParams = new URLSearchParams({
+        ...request.lang && { lang: request.lang },
+        ...request.offsetms && { offsetms: request.offsetms.toString() },
+        ...request.skipms && { skipms: request.skipms.toString() },
+        ...request.playbackId && { playbackId: request.playbackId }
+      }).toString();
+      const result = await this.baseClient.post(
+        `/bridges/${this.id}/play?${queryParams}`,
+        { media: request.media }
+      );
+      console.log(`Media playback started on bridge ${this.id}`);
+      return result;
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error playing media on bridge ${this.id}:`, message);
+      throw new Error(`Failed to play media: ${message}`);
+    }
+  }
+  /**
+   * Stops media playback on the bridge.
+   *
+   * @param playbackId - The ID of the playback to stop.
+   * @throws An error if the operation fails.
+   */
+  async stopPlayback(playbackId) {
+    try {
+      await this.baseClient.delete(
+        `/bridges/${this.id}/play/${playbackId}`
+      );
+      console.log(`Playback ${playbackId} stopped on bridge ${this.id}`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error stopping playback on bridge ${this.id}:`, message);
+      throw new Error(`Failed to stop playback: ${message}`);
+    }
+  }
+  /**
+   * Sets the video source for the bridge.
+   *
+   * @param channelId - The ID of the channel to set as the video source.
+   * @throws An error if the operation fails.
+   */
+  async setVideoSource(channelId) {
+    try {
+      await this.baseClient.post(
+        `/bridges/${this.id}/videoSource/${channelId}`
+      );
+      console.log(`Video source set for bridge ${this.id}`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(
+        `Error setting video source for bridge ${this.id}:`,
+        message
+      );
+      throw new Error(`Failed to set video source: ${message}`);
+    }
+  }
+  /**
+   * Removes the video source from the bridge.
+   *
+   * @throws An error if the operation fails.
+   */
+  async clearVideoSource() {
+    try {
+      await this.baseClient.delete(`/bridges/${this.id}/videoSource`);
+      console.log(`Video source removed from bridge ${this.id}`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(
+        `Error removing video source from bridge ${this.id}:`,
+        message
+      );
+      throw new Error(`Failed to remove video source: ${message}`);
+    }
+  }
+  /**
+   * Checks if the bridge has listeners for a specific event.
+   *
+   * @param event - The event type to check for listeners.
+   * @returns A boolean indicating whether there are listeners for the event.
+   */
+  hasListeners(event) {
+    return this.eventEmitter.listenerCount(event) > 0;
+  }
+  /**
+   * Retrieves the current bridge data without making an API call.
+   *
+   * @returns The current Bridge object or null if no data is available.
+   */
+  getCurrentData() {
+    return this.bridgeData;
+  }
+};
 var Bridges = class {
-  constructor(client) {
+  constructor(baseClient, client) {
+    this.baseClient = baseClient;
     this.client = client;
   }
+  bridgeInstances = /* @__PURE__ */ new Map();
   /**
-   * Lists all active bridges.
+   * Creates or retrieves a Bridge instance.
+   *
+   * This method manages the creation and retrieval of BridgeInstance objects.
+   * If an ID is provided and an instance with that ID already exists, it returns the existing instance.
+   * If an ID is provided but no instance exists, it creates a new instance with that ID.
+   * If no ID is provided, it creates a new instance with a generated ID.
+   *
+   * @param {Object} params - The parameters for creating or retrieving a Bridge instance.
+   * @param {string} [params.id] - Optional. The ID of the Bridge instance to create or retrieve.
+   *
+   * @returns {BridgeInstance} A BridgeInstance object, either newly created or retrieved from existing instances.
+   *
+   * @throws {Error} If there's an error in creating or retrieving the Bridge instance.
+   */
+  Bridge({ id }) {
+    try {
+      if (!id) {
+        const instance = new BridgeInstance(this.client, this.baseClient);
+        this.bridgeInstances.set(instance.id, instance);
+        console.log(`New bridge instance created with ID: ${instance.id}`);
+        return instance;
+      }
+      if (!this.bridgeInstances.has(id)) {
+        const instance = new BridgeInstance(this.client, this.baseClient, id);
+        this.bridgeInstances.set(id, instance);
+        console.log(`New bridge instance created with provided ID: ${id}`);
+        return instance;
+      }
+      console.log(`Returning existing bridge instance: ${id}`);
+      return this.bridgeInstances.get(id);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      console.error(`Error creating/retrieving bridge instance:`, message);
+      throw new Error(`Failed to manage bridge instance: ${message}`);
+    }
+  }
+  /**
+   * Removes a bridge instance from the collection of managed bridges.
+   *
+   * This function removes the specified bridge instance, cleans up its event listeners,
+   * and logs the removal. If the bridge instance doesn't exist, it logs a warning.
+   *
+   * @param {string} bridgeId - The unique identifier of the bridge instance to be removed.
+   * @throws {Error} Throws an error if the bridgeId is not provided.
+   * @returns {void}
+   */
+  removeBridgeInstance(bridgeId) {
+    if (!bridgeId) {
+      throw new Error("ID da bridge \xE9 obrigat\xF3rio");
+    }
+    if (this.bridgeInstances.has(bridgeId)) {
+      const instance = this.bridgeInstances.get(bridgeId);
+      instance?.removeAllListeners();
+      this.bridgeInstances.delete(bridgeId);
+      console.log(`Inst\xE2ncia de bridge removida: ${bridgeId}`);
+    } else {
+      console.warn(`Tentativa de remover inst\xE2ncia inexistente: ${bridgeId}`);
+    }
+  }
+  /**
+   * Propagates a WebSocket event to a specific bridge instance.
+   *
+   * This function checks if the received event is valid and related to a bridge,
+   * then emits the event to the corresponding bridge instance if it exists.
+   *
+   * @param {WebSocketEvent} event - The WebSocket event to be propagated.
+   *                                 This should be an object containing information about the event,
+   *                                 including the bridge ID and event type.
+   *
+   * @returns {void}
+   *
+   * @remarks
+   * - If the event is invalid (null or undefined), a warning is logged and the function returns early.
+   * - The function checks if the event is bridge-related and if the event type is included in the predefined bridge events.
+   * - If a matching bridge instance is found, the event is emitted to that instance.
+   * - If no matching bridge instance is found, a warning is logged.
+   */
+  propagateEventToBridge(event) {
+    if (!event) {
+      console.warn("Evento WebSocket inv\xE1lido recebido");
+      return;
+    }
+    if ("bridge" in event && event.bridge?.id && bridgeEvents.includes(event.type)) {
+      const instance = this.bridgeInstances.get(event.bridge.id);
+      if (instance) {
+        instance.emitEvent(event);
+        console.log(
+          `Evento propagado para bridge ${event.bridge.id}: ${event.type}`
+        );
+      } else {
+        console.warn(
+          `Nenhuma inst\xE2ncia encontrada para bridge ${event.bridge.id}`
+        );
+      }
+    }
+  }
+  /**
+   * Lists all active bridges in the system.
+   *
+   * This asynchronous function retrieves a list of all currently active bridges
+   * by making a GET request to the "/bridges" endpoint using the base client.
+   *
+   * @returns {Promise<Bridge[]>} A promise that resolves to an array of Bridge objects.
+   *                              Each Bridge object represents an active bridge in the system.
+   *
+   * @throws {Error} If there's an error in fetching the bridges or if the request fails.
+   *
+   * @example
+   * try {
+   *   const bridges = await bridgesInstance.list();
+   *   console.log('Active bridges:', bridges);
+   * } catch (error) {
+   *   console.error('Failed to fetch bridges:', error);
+   * }
    */
   async list() {
-    return this.client.get("/bridges");
+    return this.baseClient.get("/bridges");
   }
   /**
-   * Creates a new bridge.
+   * Creates a new bridge in the system.
+   *
+   * This asynchronous function sends a POST request to create a new bridge
+   * using the provided configuration details.
+   *
+   * @param request - The configuration details for creating the new bridge.
+   * @param request.type - The type of bridge to create (e.g., 'mixing', 'holding').
+   * @param request.name - Optional. A custom name for the bridge.
+   * @param request.bridgeId - Optional. A specific ID for the bridge. If not provided, one will be generated.
+   *
+   * @returns A Promise that resolves to a Bridge object representing the newly created bridge.
+   *          The Bridge object contains details such as id, technology, bridge_type, bridge_class, channels, etc.
+   *
+   * @throws Will throw an error if the bridge creation fails or if there's a network issue.
    */
   async createBridge(request) {
-    return this.client.post("/bridges", request);
+    return this.baseClient.post("/bridges", request);
   }
   /**
-   * Retrieves details of a specific bridge.
+   * Retrieves detailed information about a specific bridge.
+   *
+   * This asynchronous function fetches the complete details of a bridge
+   * identified by its unique ID. It makes a GET request to the ARI endpoint
+   * for the specified bridge.
+   *
+   * @param bridgeId - The unique identifier of the bridge to retrieve details for.
+   *                   This should be a string that uniquely identifies the bridge in the system.
+   *
+   * @returns A Promise that resolves to a Bridge object containing all the details
+   *          of the specified bridge. This includes information such as the bridge's
+   *          ID, type, channels, and other relevant properties.
+   *
+   * @throws Will throw an error if the bridge cannot be found, if there's a network issue,
+   *         or if the server responds with an error.
    */
-  async getDetails(bridgeId) {
-    return this.client.get(`/bridges/${bridgeId}`);
+  async get(bridgeId) {
+    return this.baseClient.get(`/bridges/${bridgeId}`);
   }
   /**
-   * Destroys (deletes) a specific bridge.
+   * Destroys (deletes) a specific bridge in the system.
+   *
+   * This asynchronous function sends a DELETE request to remove a bridge
+   * identified by its unique ID. Once destroyed, the bridge and all its
+   * associated resources are permanently removed from the system.
+   *
+   * @param bridgeId - The unique identifier of the bridge to be destroyed.
+   *                   This should be a string that uniquely identifies the bridge in the system.
+   *
+   * @returns A Promise that resolves to void when the bridge is successfully destroyed.
+   *          If the operation is successful, the bridge no longer exists in the system.
+   *
+   * @throws Will throw an error if the bridge cannot be found, if there's a network issue,
+   *         or if the server responds with an error during the deletion process.
    */
   async destroy(bridgeId) {
-    return this.client.delete(`/bridges/${bridgeId}`);
+    return this.baseClient.delete(`/bridges/${bridgeId}`);
   }
   /**
-   * Adds a channel or multiple channels to a bridge.
+   * Adds one or more channels to a specified bridge.
+   *
+   * This asynchronous function sends a POST request to add channels to an existing bridge.
+   * It can handle adding a single channel or multiple channels in one operation.
+   *
+   * @param bridgeId - The unique identifier of the bridge to which channels will be added.
+   * @param request - An object containing the details of the channel(s) to be added.
+   * @param request.channel - A single channel ID or an array of channel IDs to add to the bridge.
+   * @param request.role - Optional. Specifies the role of the channel(s) in the bridge.
+   *
+   * @returns A Promise that resolves to void when the operation is successful.
+   *
+   * @throws Will throw an error if the request fails, such as if the bridge doesn't exist
+   *         or if there's a network issue.
    */
   async addChannels(bridgeId, request) {
-    const queryParams = new URLSearchParams({
+    const queryParams = toQueryParams2({
       channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel,
       ...request.role && { role: request.role }
-    }).toString();
-    await this.client.post(
+    });
+    await this.baseClient.post(
       `/bridges/${bridgeId}/addChannel?${queryParams}`
     );
   }
   /**
-   * Removes a channel or multiple channels from a bridge.
+   * Removes one or more channels from a specified bridge.
+   *
+   * This asynchronous function sends a POST request to remove channels from an existing bridge.
+   * It can handle removing a single channel or multiple channels in one operation.
+   *
+   * @param bridgeId - The unique identifier of the bridge from which channels will be removed.
+   * @param request - An object containing the details of the channel(s) to be removed.
+   * @param request.channel - A single channel ID or an array of channel IDs to remove from the bridge.
+   *
+   * @returns A Promise that resolves to void when the operation is successful.
+   *
+   * @throws Will throw an error if the request fails, such as if the bridge doesn't exist,
+   *         if the channels are not in the bridge, or if there's a network issue.
    */
   async removeChannels(bridgeId, request) {
-    const queryParams = new URLSearchParams({
+    const queryParams = toQueryParams2({
       channel: Array.isArray(request.channel) ? request.channel.join(",") : request.channel
-    }).toString();
-    await this.client.post(
+    });
+    await this.baseClient.post(
       `/bridges/${bridgeId}/removeChannel?${queryParams}`
     );
   }
   /**
-   * Plays media to a bridge.
+   * Plays media on a specified bridge.
+   *
+   * This asynchronous function initiates media playback on a bridge identified by its ID.
+   * It allows for customization of the playback through various options in the request.
+   *
+   * @param bridgeId - The unique identifier of the bridge on which to play the media.
+   * @param request - An object containing the media playback request details.
+   * @param request.media - The media to be played (e.g., sound file, URL).
+   * @param request.lang - Optional. The language of the media content.
+   * @param request.offsetms - Optional. The offset in milliseconds to start playing from.
+   * @param request.skipms - Optional. The number of milliseconds to skip before playing.
+   * @param request.playbackId - Optional. A custom ID for the playback session.
+   *
+   * @returns A Promise that resolves to a BridgePlayback object, containing details about the initiated playback.
+   *
+   * @throws Will throw an error if the playback request fails or if there's a network issue.
    */
   async playMedia(bridgeId, request) {
-    const queryParams = new URLSearchParams({
+    const queryParams = toQueryParams2({
       ...request.lang && { lang: request.lang },
       ...request.offsetms && { offsetms: request.offsetms.toString() },
       ...request.skipms && { skipms: request.skipms.toString() },
       ...request.playbackId && { playbackId: request.playbackId }
-    }).toString();
-    return this.client.post(
+    });
+    return this.baseClient.post(
       `/bridges/${bridgeId}/play?${queryParams}`,
       { media: request.media }
     );
   }
   /**
-   * Stops media playback on a bridge.
+   * Stops media playback on a specified bridge.
+   *
+   * This asynchronous function sends a DELETE request to stop the playback of media
+   * on a bridge identified by its ID and a specific playback session.
+   *
+   * @param bridgeId - The unique identifier of the bridge where the playback is to be stopped.
+   * @param playbackId - The unique identifier of the playback session to be stopped.
+   *
+   * @returns A Promise that resolves to void when the playback is successfully stopped.
+   *
+   * @throws Will throw an error if the request fails, such as if the bridge or playback session
+   *         doesn't exist, or if there's a network issue.
    */
   async stopPlayback(bridgeId, playbackId) {
-    await this.client.delete(`/bridges/${bridgeId}/play/${playbackId}`);
-  }
-  /**
-   * Sets the video source for a bridge.
-   */
-  async setVideoSource(bridgeId, channelId) {
-    await this.client.post(
-      `/bridges/${bridgeId}/videoSource?channelId=${encodeURIComponent(channelId)}`
+    await this.baseClient.delete(
+      `/bridges/${bridgeId}/play/${playbackId}`
     );
   }
   /**
-   * Clears the video source for a bridge.
+   * Sets the video source for a specified bridge.
+   *
+   * This asynchronous function configures a channel as the video source for a given bridge.
+   * It sends a POST request to the ARI endpoint to update the bridge's video source.
+   *
+   * @param bridgeId - The unique identifier of the bridge for which to set the video source.
+   * @param channelId - The unique identifier of the channel to be set as the video source.
+   *
+   * @returns A Promise that resolves to void when the video source is successfully set.
+   *
+   * @throws Will throw an error if the request fails, such as if the bridge or channel
+   *         doesn't exist, or if there's a network issue.
+   */
+  async setVideoSource(bridgeId, channelId) {
+    const queryParams = toQueryParams2({ channelId });
+    await this.baseClient.post(
+      `/bridges/${bridgeId}/videoSource?${queryParams}`
+    );
+  }
+  /**
+   * Clears the video source for a specified bridge.
+   *
+   * This asynchronous function removes the currently set video source from a bridge.
+   * It sends a DELETE request to the ARI endpoint to clear the video source configuration.
+   *
+   * @param bridgeId - The unique identifier of the bridge from which to clear the video source.
+   *                   This should be a string that uniquely identifies the bridge in the system.
+   *
+   * @returns A Promise that resolves to void when the video source is successfully cleared.
+   *          If the operation is successful, the bridge will no longer have a designated video source.
+   *
+   * @throws Will throw an error if the request fails, such as if the bridge doesn't exist,
+   *         if there's no video source set, or if there's a network issue.
    */
   async clearVideoSource(bridgeId) {
-    await this.client.delete(`/bridges/${bridgeId}/videoSource`);
+    await this.baseClient.delete(`/bridges/${bridgeId}/videoSource`);
+  }
+  /**
+   * Retrieves the count of active bridge instances.
+   *
+   * This function returns the total number of bridge instances currently
+   * managed by the Bridges class. It provides a quick way to check how many
+   * active bridges are present in the system.
+   *
+   * @returns {number} The count of active bridge instances.
+   */
+  getInstanceCount() {
+    return this.bridgeInstances.size;
+  }
+  /**
+   * Checks if a bridge instance exists in the collection of managed bridges.
+   *
+   * This function verifies whether a bridge instance with the specified ID
+   * is currently being managed by the Bridges class.
+   *
+   * @param bridgeId - The unique identifier of the bridge instance to check.
+   *                   This should be a string that uniquely identifies the bridge in the system.
+   *
+   * @returns A boolean value indicating whether the bridge instance exists.
+   *          Returns true if the bridge instance is found, false otherwise.
+   */
+  hasInstance(bridgeId) {
+    return this.bridgeInstances.has(bridgeId);
+  }
+  /**
+   * Retrieves all active bridge instances currently managed by the Bridges class.
+   *
+   * This method provides a way to access all the BridgeInstance objects that are
+   * currently active and being managed. It returns a new Map to prevent direct
+   * modification of the internal bridgeInstances collection.
+   *
+   * @returns A new Map object containing all active bridge instances, where the keys
+   *          are the bridge IDs (strings) and the values are the corresponding
+   *          BridgeInstance objects. If no bridges are active, an empty Map is returned.
+   */
+  getAllInstances() {
+    return new Map(this.bridgeInstances);
   }
 };
 
 // src/ari-client/resources/channels.ts
-var import_events = require("events");
-var import_axios2 = require("axios");
+var import_events3 = require("events");
+var import_axios3 = require("axios");
 
 // node_modules/uuid/dist/esm/stringify.js
 var byteToHex = [];
@@ -1072,16 +1657,9 @@ function v4(options, buf, offset) {
 }
 var v4_default = v4;
 
-// src/ari-client/utils.ts
-function toQueryParams2(options) {
-  return new URLSearchParams(
-    Object.entries(options).filter(([, value]) => value !== void 0).map(([key, value]) => [key, value])
-  ).toString();
-}
-
 // src/ari-client/resources/channels.ts
-var getErrorMessage = (error) => {
-  if ((0, import_axios2.isAxiosError)(error)) {
+var getErrorMessage2 = (error) => {
+  if ((0, import_axios3.isAxiosError)(error)) {
     return error.response?.data?.message || error.message || "An axios error occurred";
   }
   if (error instanceof Error) {
@@ -1096,7 +1674,7 @@ var ChannelInstance = class {
     this.id = channelId || `channel-${Date.now()}`;
     console.log(`Channel instance initialized with ID: ${this.id}`);
   }
-  eventEmitter = new import_events.EventEmitter();
+  eventEmitter = new import_events3.EventEmitter();
   channelData = null;
   id;
   /**
@@ -1185,7 +1763,7 @@ var ChannelInstance = class {
       await this.baseClient.post(`/channels/${this.id}/answer`);
       console.log(`Channel ${this.id} answered`);
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error answering channel ${this.id}:`, message);
       throw new Error(`Failed to answer channel: ${message}`);
     }
@@ -1211,7 +1789,7 @@ var ChannelInstance = class {
       );
       return this.channelData;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error originating channel:`, message);
       throw new Error(`Failed to originate channel: ${message}`);
     }
@@ -1236,7 +1814,7 @@ var ChannelInstance = class {
       console.log(`Media playback started on channel ${this.id}`);
       return playback;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error playing media on channel ${this.id}:`, message);
       throw new Error(`Failed to play media: ${message}`);
     }
@@ -1259,7 +1837,7 @@ var ChannelInstance = class {
       console.log(`Retrieved channel details for ${this.id}`);
       return details;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(
         `Error retrieving channel details for ${this.id}:`,
         message
@@ -1504,7 +2082,7 @@ var Channels = class {
       console.log(`Returning existing channel instance: ${id}`);
       return this.channelInstances.get(id);
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error creating/retrieving channel instance:`, message);
       throw new Error(`Failed to manage channel instance: ${message}`);
     }
@@ -1525,7 +2103,7 @@ var Channels = class {
       console.log(`Retrieved channel details for ${id}`);
       return details;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error retrieving channel details for ${id}:`, message);
       throw new Error(`Failed to get channel details: ${message}`);
     }
@@ -1578,7 +2156,7 @@ var Channels = class {
       console.log(`Channel originated successfully with ID: ${channel.id}`);
       return channel;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error originating channel:`, message);
       throw new Error(`Failed to originate channel: ${message}`);
     }
@@ -1595,7 +2173,7 @@ var Channels = class {
       console.log(`Retrieved ${channels.length} active channels`);
       return channels;
     } catch (error) {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage2(error);
       console.error(`Error listing channels:`, message);
       throw new Error(`Failed to list channels: ${message}`);
     }
@@ -2022,10 +2600,10 @@ var Endpoints = class {
 };
 
 // src/ari-client/resources/playbacks.ts
-var import_events2 = require("events");
-var import_axios3 = require("axios");
-var getErrorMessage2 = (error) => {
-  if ((0, import_axios3.isAxiosError)(error)) {
+var import_events4 = require("events");
+var import_axios4 = require("axios");
+var getErrorMessage3 = (error) => {
+  if ((0, import_axios4.isAxiosError)(error)) {
     return error.response?.data?.message || error.message || "An axios error occurred";
   }
   if (error instanceof Error) {
@@ -2048,7 +2626,7 @@ var PlaybackInstance = class {
     this.id = playbackId;
     console.log(`PlaybackInstance initialized with ID: ${this.id}`);
   }
-  eventEmitter = new import_events2.EventEmitter();
+  eventEmitter = new import_events4.EventEmitter();
   playbackData = null;
   id;
   /**
@@ -2143,7 +2721,7 @@ var PlaybackInstance = class {
       console.log(`Retrieved playback data for ${this.id}`);
       return this.playbackData;
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error retrieving playback data for ${this.id}:`, message);
       throw new Error(`Failed to get playback data: ${message}`);
     }
@@ -2166,7 +2744,7 @@ var PlaybackInstance = class {
         `Operation ${operation} executed successfully on playback ${this.id}`
       );
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error controlling playback ${this.id}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
@@ -2184,7 +2762,7 @@ var PlaybackInstance = class {
       await this.baseClient.delete(`/playbacks/${this.id}`);
       console.log(`Playback ${this.id} stopped successfully`);
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error stopping playback ${this.id}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
@@ -2244,7 +2822,7 @@ var Playbacks = class {
       console.log(`Returning existing playback instance: ${id}`);
       return this.playbackInstances.get(id);
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error creating/retrieving playback instance:`, message);
       throw new Error(`Failed to manage playback instance: ${message}`);
     }
@@ -2301,7 +2879,7 @@ var Playbacks = class {
     try {
       return await this.baseClient.get(`/playbacks/${playbackId}`);
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error getting playback details ${playbackId}:`, message);
       throw new Error(`Failed to get playback details: ${message}`);
     }
@@ -2321,7 +2899,7 @@ var Playbacks = class {
       await playback.control(operation);
       console.log(`Operation ${operation} executed on playback ${playbackId}`);
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error controlling playback ${playbackId}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
@@ -2340,7 +2918,7 @@ var Playbacks = class {
       await playback.stop();
       console.log(`Playback ${playbackId} stopped`);
     } catch (error) {
-      const message = getErrorMessage2(error);
+      const message = getErrorMessage3(error);
       console.error(`Error stopping playback ${playbackId}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
@@ -2394,13 +2972,13 @@ var Sounds = class {
 };
 
 // src/ari-client/websocketClient.ts
-var import_events3 = require("events");
+var import_events5 = require("events");
 var import_exponential_backoff = __toESM(require_backoff(), 1);
 var import_ws = __toESM(require("ws"), 1);
 var DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
 var DEFAULT_STARTING_DELAY = 500;
 var DEFAULT_MAX_DELAY = 1e4;
-var WebSocketClient = class extends import_events3.EventEmitter {
+var WebSocketClient = class extends import_events5.EventEmitter {
   /**
    * Creates a new WebSocket client instance.
    *
@@ -2520,10 +3098,18 @@ var WebSocketClient = class extends import_events3.EventEmitter {
         instancePlayback.emitEvent(event);
         event.instancePlayback = instancePlayback;
       }
+      if ("bridge" in event && event.bridge?.id && this.ariClient) {
+        const instanceBridge = this.ariClient.Bridge(event.bridge.id);
+        instanceBridge.emitEvent(event);
+        event.instanceBridge = instanceBridge;
+      }
       this.emit(event.type, event);
       console.log(`Event processed: ${event.type}`);
     } catch (error) {
-      console.error("Error processing WebSocket message:", error instanceof Error ? error.message : "Unknown error");
+      console.error(
+        "Error processing WebSocket message:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
       this.emit("error", new Error("Failed to decode WebSocket message"));
     }
   }
@@ -2536,13 +3122,15 @@ var WebSocketClient = class extends import_events3.EventEmitter {
     this.isReconnecting = true;
     console.log("Initiating reconnection attempt...");
     this.removeAllListeners();
-    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch((error) => {
-      console.error(
-        "Failed to reconnect after multiple attempts:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
-      this.emit("reconnectFailed", error);
-    });
+    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
+      (error) => {
+        console.error(
+          "Failed to reconnect after multiple attempts:",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+        this.emit("reconnectFailed", error);
+      }
+    );
   }
   /**
    * Manually closes the WebSocket connection.
@@ -2598,11 +3186,11 @@ var AriClient = class {
     this.baseClient = new BaseClient(baseUrl, config.username, config.password);
     this.channels = new Channels(this.baseClient, this);
     this.playbacks = new Playbacks(this.baseClient, this);
+    this.bridges = new Bridges(this.baseClient, this);
     this.endpoints = new Endpoints(this.baseClient);
     this.applications = new Applications(this.baseClient);
     this.sounds = new Sounds(this.baseClient);
     this.asterisk = new Asterisk(this.baseClient);
-    this.bridges = new Bridges(this.baseClient);
     console.log(`ARI Client initialized with base URL: ${baseUrl}`);
   }
   baseClient;
@@ -2719,6 +3307,20 @@ var AriClient = class {
     return this.playbacks.Playback({ id: playbackId });
   }
   /**
+   * Creates or retrieves a Bridge instance.
+   *
+   * This function allows you to create a new Bridge instance or retrieve an existing one
+   * based on the provided bridge ID.
+   *
+   * @param {string} [bridgeId] - Optional ID of an existing bridge. If provided, retrieves the
+   *                               existing bridge with this ID. If omitted, creates a new bridge.
+   * @returns {BridgeInstance} A new or existing Bridge instance that can be used to interact
+   *                           with the Asterisk bridge.
+   */
+  Bridge(bridgeId) {
+    return this.bridges.Bridge({ id: bridgeId });
+  }
+  /**
    * Gets the current WebSocket connection status.
    *
    * @returns {boolean} True if WebSocket is connected, false otherwise
@@ -2732,6 +3334,7 @@ var AriClient = class {
   Applications,
   AriClient,
   Asterisk,
+  BridgeInstance,
   Bridges,
   ChannelInstance,
   Channels,

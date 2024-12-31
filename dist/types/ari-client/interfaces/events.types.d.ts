@@ -1,5 +1,6 @@
 import type { ChannelInstance } from "../resources/channels";
 import type { PlaybackInstance, Playbacks } from "../resources/playbacks";
+import type { Bridge } from "./bridges.types";
 import type { Channel } from "./channels.types";
 import type { Playback } from "./playbacks.types";
 export type ChannelEvent = Extract<WebSocketEvent, {
@@ -8,7 +9,11 @@ export type ChannelEvent = Extract<WebSocketEvent, {
 export type PlaybackEvent = Extract<WebSocketEvent, {
     playback: Playback;
 }>;
+export type BridgeEvent = Extract<WebSocketEvent, {
+    bridge: Bridge;
+}>;
 export type WebSocketEventType = "DeviceStateChanged" | "PlaybackStarted" | "PlaybackContinuing" | "PlaybackFinished" | "RecordingStarted" | "RecordingFinished" | "RecordingFailed" | "ApplicationMoveFailed" | "ApplicationReplaced" | "BridgeCreated" | "BridgeDestroyed" | "BridgeMerged" | "BridgeBlindTransfer" | "BridgeAttendedTransfer" | "BridgeVideoSourceChanged" | "ChannelCreated" | "ChannelDestroyed" | "ChannelEnteredBridge" | "ChannelLeftBridge" | "ChannelStateChange" | "ChannelDtmfReceived" | "ChannelDialplan" | "ChannelCallerId" | "ChannelUserevent" | "ChannelHangupRequest" | "ChannelVarset" | "ChannelTalkingStarted" | "ChannelTalkingFinished" | "ChannelHold" | "ChannelUnhold" | "ContactStatusChange" | "EndpointStateChange" | "Dial" | "StasisEnd" | "StasisStart" | "TextMessageReceived" | "ChannelConnectedLine" | "PeerStatusChange";
+export declare const bridgeEvents: string[];
 export type WebSocketEvent = {
     type: "ChannelDtmfReceived";
     digit: string;

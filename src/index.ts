@@ -26,7 +26,7 @@ export {
   PlaybackInstance,
 } from "./ari-client/resources/playbacks.js";
 export { Asterisk } from "./ari-client/resources/asterisk.js";
-export { Bridges } from "./ari-client/resources/bridges.js";
+export { Bridges, BridgeInstance } from "./ari-client/resources/bridges.js";
 
 /**
  * Type Definitions

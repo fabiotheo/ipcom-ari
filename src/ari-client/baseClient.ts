@@ -1,7 +1,7 @@
 import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
-  isAxiosError
+  isAxiosError,
 } from "axios";
 
 /**
@@ -9,13 +9,13 @@ import axios, {
  */
 class HTTPError extends Error {
   constructor(
-      message: string,
-      public readonly status?: number,
-      public readonly method?: string,
-      public readonly url?: string,
+    message: string,
+    public readonly status?: number,
+    public readonly method?: string,
+    public readonly url?: string,
   ) {
     super(message);
-    this.name = 'HTTPError';
+    this.name = "HTTPError";
   }
 }
 
@@ -36,13 +36,15 @@ export class BaseClient {
    * @throws {Error} If the base URL format is invalid
    */
   constructor(
-      private readonly baseUrl: string,
-      private readonly username: string,
-      private readonly password: string,
-      timeout = 5000,
+    private readonly baseUrl: string,
+    private readonly username: string,
+    private readonly password: string,
+    timeout = 5000,
   ) {
     if (!/^https?:\/\/.+/.test(baseUrl)) {
-      throw new Error("Invalid base URL. It must start with http:// or https://");
+      throw new Error(
+        "Invalid base URL. It must start with http:// or https://",
+      );
     }
 
     this.client = axios.create({
@@ -50,7 +52,7 @@ export class BaseClient {
       auth: { username, password },
       timeout,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -85,46 +87,47 @@ export class BaseClient {
    */
   private addInterceptors(): void {
     this.client.interceptors.request.use(
-        (config) => {
-          console.log(`[Request] ${config.method?.toUpperCase()} ${config.url}`);
-          return config;
-        },
-        (error: unknown) => {
-          const message = this.getErrorMessage(error);
-          console.error("[Request Error]", message);
-          return Promise.reject(new HTTPError(message));
-        },
+      (config) => {
+        console.log(`[Request] ${config.method?.toUpperCase()} ${config.url}`);
+        return config;
+      },
+      (error: unknown) => {
+        const message = this.getErrorMessage(error);
+        console.error("[Request Error]", message);
+        return Promise.reject(new HTTPError(message));
+      },
     );
 
     this.client.interceptors.response.use(
-        (response) => {
-          console.log(`[Response] ${response.status} ${response.config.url}`);
-          return response;
-        },
-        (error: unknown) => {
-          if (isAxiosError(error)) {
-            const status = error.response?.status ?? 0;
-            const method = error.config?.method?.toUpperCase() ?? 'UNKNOWN';
-            const url = error.config?.url ?? 'unknown-url';
-            const message = error.response?.data?.message || error.message || 'Unknown error';
+      (response) => {
+        console.log(`[Response] ${response.status} ${response.config.url}`);
+        return response;
+      },
+      (error: unknown) => {
+        if (isAxiosError(error)) {
+          const status = error.response?.status ?? 0;
+          const method = error.config?.method?.toUpperCase() ?? "UNKNOWN";
+          const url = error.config?.url ?? "unknown-url";
+          const message =
+            error.response?.data?.message || error.message || "Unknown error";
 
-            if (status === 404) {
-              console.warn(`[404] Not Found: ${url}`);
-            } else if (status >= 500) {
-              console.error(`[${status}] Server Error: ${url}`);
-            } else if (status > 0) {
-              console.warn(`[${status}] ${method} ${url}: ${message}`);
-            } else {
-              console.error(`[Network] Request failed: ${message}`);
-            }
-
-            throw new HTTPError(message, status || undefined, method, url);
+          if (status === 404) {
+            console.warn(`[404] Not Found: ${url}`);
+          } else if (status >= 500) {
+            console.error(`[${status}] Server Error: ${url}`);
+          } else if (status > 0) {
+            console.warn(`[${status}] ${method} ${url}: ${message}`);
+          } else {
+            console.error(`[Network] Request failed: ${message}`);
           }
 
-          const message = this.getErrorMessage(error);
-          console.error("[Unexpected Error]", message);
-          throw new Error(message);
-        },
+          throw new HTTPError(message, status || undefined, method, url);
+        }
+
+        const message = this.getErrorMessage(error);
+        console.error("[Unexpected Error]", message);
+        throw new Error(message);
+      },
     );
   }
 
@@ -153,9 +156,9 @@ export class BaseClient {
    * @returns Promise with the response data
    */
   async post<T, D = unknown>(
-      path: string,
-      data?: D,
-      config?: AxiosRequestConfig,
+    path: string,
+    data?: D,
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     try {
       const response = await this.client.post<T>(path, data, config);
@@ -174,9 +177,9 @@ export class BaseClient {
    * @returns Promise with the response data
    */
   async put<T, D = unknown>(
-      path: string,
-      data: D,
-      config?: AxiosRequestConfig,
+    path: string,
+    data: D,
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     try {
       const response = await this.client.put<T>(path, data, config);
@@ -222,10 +225,10 @@ export class BaseClient {
     const message = this.getErrorMessage(error);
     if (isAxiosError(error)) {
       throw new HTTPError(
-          message,
-          error.response?.status,
-          error.config?.method?.toUpperCase(),
-          error.config?.url
+        message,
+        error.response?.status,
+        error.config?.method?.toUpperCase(),
+        error.config?.url,
       );
     }
     throw new Error(message);
