@@ -619,7 +619,9 @@ var BaseClient = class {
     this.username = username;
     this.password = password;
     if (!/^https?:\/\/.+/.test(baseUrl)) {
-      throw new Error("Invalid base URL. It must start with http:// or https://");
+      throw new Error(
+        "Invalid base URL. It must start with http:// or https://"
+      );
     }
     this.client = import_axios.default.create({
       baseURL: baseUrl,
@@ -813,7 +815,7 @@ var Applications = class {
   }
   /**
    * Lists all applications.
-   * 
+   *
    * @returns A promise that resolves to an array of Application objects.
    * @throws {Error} If the API response is not an array.
    */
@@ -826,7 +828,7 @@ var Applications = class {
   }
   /**
    * Retrieves details of a specific application.
-   * 
+   *
    * @param appName - The name of the application to retrieve details for.
    * @returns A promise that resolves to an ApplicationDetails object.
    * @throws {Error} If there's an error fetching the application details.
@@ -843,7 +845,7 @@ var Applications = class {
   }
   /**
    * Sends a message to a specific application.
-   * 
+   *
    * @param appName - The name of the application to send the message to.
    * @param body - The message to be sent, containing an event and optional data.
    * @returns A promise that resolves when the message is successfully sent.

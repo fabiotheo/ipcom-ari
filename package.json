@@ -1,9 +1,9 @@
 {
   "name": "@ipcom/asterisk-ari",
-  "version": "0.0.144-beta",
+  "version": "0.0.145-beta",
   "type": "module",
   "description": "JavaScript client for Asterisk REST Interface.",
-  "homepage": "https://github.com/fabiotheo/ipcom-asterisk-ari",
+  "homepage": "https://github.com/fabiotheo/ipcom-ari",
   "keywords": ["Asterisk", "ARI", "Node.js", "TypeScript"],
   "types": "dist/client.d.ts",
   "main": "./dist/cjs/client.cjs",
