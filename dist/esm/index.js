@@ -954,7 +954,6 @@ var BridgeInstance = class {
     this.client = client;
     this.baseClient = baseClient;
     this.id = bridgeId || `bridge-${Date.now()}`;
-    console.log(`BridgeInstance inicializada com ID: ${this.id}`);
   }
   eventEmitter = new EventEmitter();
   bridgeData = null;
@@ -977,7 +976,7 @@ var BridgeInstance = class {
    *
    * @example
    * bridge.on('BridgeCreated', (event) => {
-   *   console.log('Bridge created:', event.bridge.id);
+   *
    * });
    * @param event
    * @param listener
@@ -992,7 +991,6 @@ var BridgeInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(`Event listener registered for ${event} on bridge ${this.id}`);
   }
   /**
    * Registers a one-time listener for specific bridge events.
@@ -1010,9 +1008,6 @@ var BridgeInstance = class {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time listener registered for ${event} on bridge ${this.id}`
-    );
   }
   /**
    * Removes event listener(s) from the bridge.
@@ -1026,12 +1021,8 @@ var BridgeInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on bridge ${this.id}`
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on bridge ${this.id}`);
     }
   }
   /**
@@ -1046,7 +1037,6 @@ var BridgeInstance = class {
     }
     if ("bridge" in event && event.bridge?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for bridge ${this.id}`);
     }
   }
   /**
@@ -1054,7 +1044,6 @@ var BridgeInstance = class {
    */
   removeAllListeners() {
     this.eventEmitter.removeAllListeners();
-    console.log(`All listeners removed from bridge ${this.id}`);
   }
   /**
    * Retrieves the current details of the bridge.
@@ -1070,7 +1059,6 @@ var BridgeInstance = class {
       this.bridgeData = await this.baseClient.get(
         `/bridges/${this.id}`
       );
-      console.log(`Details retrieved for bridge ${this.id}`);
       return this.bridgeData;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1093,7 +1081,6 @@ var BridgeInstance = class {
       await this.baseClient.post(
         `/bridges/${this.id}/addChannel?${queryParams}`
       );
-      console.log(`Channels added to bridge ${this.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error adding channels to bridge ${this.id}:`, message);
@@ -1114,7 +1101,6 @@ var BridgeInstance = class {
       await this.baseClient.post(
         `/bridges/${this.id}/removeChannel?${queryParams}`
       );
-      console.log(`Channels removed from bridge ${this.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error removing channels from bridge ${this.id}:`, message);
@@ -1140,7 +1126,6 @@ var BridgeInstance = class {
         `/bridges/${this.id}/play?${queryParams}`,
         { media: request.media }
       );
-      console.log(`Media playback started on bridge ${this.id}`);
       return result;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1159,7 +1144,6 @@ var BridgeInstance = class {
       await this.baseClient.delete(
         `/bridges/${this.id}/play/${playbackId}`
       );
-      console.log(`Playback ${playbackId} stopped on bridge ${this.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error stopping playback on bridge ${this.id}:`, message);
@@ -1177,7 +1161,6 @@ var BridgeInstance = class {
       await this.baseClient.post(
         `/bridges/${this.id}/videoSource/${channelId}`
       );
-      console.log(`Video source set for bridge ${this.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(
@@ -1195,7 +1178,6 @@ var BridgeInstance = class {
   async clearVideoSource() {
     try {
       await this.baseClient.delete(`/bridges/${this.id}/videoSource`);
-      console.log(`Video source removed from bridge ${this.id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(
@@ -1249,20 +1231,16 @@ var Bridges = class {
       if (!id) {
         const instance = new BridgeInstance(this.client, this.baseClient);
         this.bridgeInstances.set(instance.id, instance);
-        console.log(`New bridge instance created with ID: ${instance.id}`);
         return instance;
       }
       if (!this.bridgeInstances.has(id)) {
         const instance = new BridgeInstance(this.client, this.baseClient, id);
         this.bridgeInstances.set(id, instance);
-        console.log(`New bridge instance created with provided ID: ${id}`);
         return instance;
       }
-      console.log(`Returning existing bridge instance: ${id}`);
       return this.bridgeInstances.get(id);
     } catch (error) {
       const message = getErrorMessage(error);
-      console.error(`Error creating/retrieving bridge instance:`, message);
       throw new Error(`Failed to manage bridge instance: ${message}`);
     }
   }
@@ -1284,7 +1262,6 @@ var Bridges = class {
       const instance = this.bridgeInstances.get(bridgeId);
       instance?.removeAllListeners();
       this.bridgeInstances.delete(bridgeId);
-      console.log(`Inst\xE2ncia de bridge removida: ${bridgeId}`);
     } else {
       console.warn(`Tentativa de remover inst\xE2ncia inexistente: ${bridgeId}`);
     }
@@ -1316,9 +1293,6 @@ var Bridges = class {
       const instance = this.bridgeInstances.get(event.bridge.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Evento propagado para bridge ${event.bridge.id}: ${event.type}`
-        );
       } else {
         console.warn(
           `Nenhuma inst\xE2ncia encontrada para bridge ${event.bridge.id}`
@@ -1340,7 +1314,7 @@ var Bridges = class {
    * @example
    * try {
    *   const bridges = await bridgesInstance.list();
-   *   console.log('Active bridges:', bridges);
+   *
    * } catch (error) {
    *   console.error('Failed to fetch bridges:', error);
    * }

@@ -37,7 +37,7 @@ export declare class BridgeInstance {
      *
      * @example
      * bridge.on('BridgeCreated', (event) => {
-     *   console.log('Bridge created:', event.bridge.id);
+     *
      * });
      * @param event
      * @param listener
@@ -203,7 +203,7 @@ export declare class Bridges {
      * @example
      * try {
      *   const bridges = await bridgesInstance.list();
-     *   console.log('Active bridges:', bridges);
+     *
      * } catch (error) {
      *   console.error('Failed to fetch bridges:', error);
      * }

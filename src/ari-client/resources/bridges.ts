@@ -65,7 +65,6 @@ export class BridgeInstance {
     bridgeId?: string,
   ) {
     this.id = bridgeId || `bridge-${Date.now()}`;
-    console.log(`BridgeInstance inicializada com ID: ${this.id}`);
   }
 
   /**
@@ -86,7 +85,7 @@ export class BridgeInstance {
    *
    * @example
    * bridge.on('BridgeCreated', (event) => {
-   *   console.log('Bridge created:', event.bridge.id);
+   *
    * });
    * @param event
    * @param listener
@@ -105,7 +104,6 @@ export class BridgeInstance {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(`Event listener registered for ${event} on bridge ${this.id}`);
   }
 
   /**
@@ -128,9 +126,6 @@ export class BridgeInstance {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time listener registered for ${event} on bridge ${this.id}`,
-    );
   }
 
   /**
@@ -149,12 +144,8 @@ export class BridgeInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on bridge ${this.id}`,
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on bridge ${this.id}`);
     }
   }
 
@@ -171,7 +162,6 @@ export class BridgeInstance {
 
     if ("bridge" in event && event.bridge?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for bridge ${this.id}`);
     }
   }
 
@@ -180,7 +170,6 @@ export class BridgeInstance {
    */
   removeAllListeners(): void {
     this.eventEmitter.removeAllListeners();
-    console.log(`All listeners removed from bridge ${this.id}`);
   }
 
   /**
@@ -198,7 +187,6 @@ export class BridgeInstance {
       this.bridgeData = await this.baseClient.get<Bridge>(
         `/bridges/${this.id}`,
       );
-      console.log(`Details retrieved for bridge ${this.id}`);
       return this.bridgeData;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -225,7 +213,6 @@ export class BridgeInstance {
       await this.baseClient.post<void>(
         `/bridges/${this.id}/addChannel?${queryParams}`,
       );
-      console.log(`Channels added to bridge ${this.id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error adding channels to bridge ${this.id}:`, message);
@@ -250,7 +237,6 @@ export class BridgeInstance {
       await this.baseClient.post<void>(
         `/bridges/${this.id}/removeChannel?${queryParams}`,
       );
-      console.log(`Channels removed from bridge ${this.id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error removing channels from bridge ${this.id}:`, message);
@@ -278,7 +264,7 @@ export class BridgeInstance {
         `/bridges/${this.id}/play?${queryParams}`,
         { media: request.media },
       );
-      console.log(`Media playback started on bridge ${this.id}`);
+
       return result;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -298,7 +284,6 @@ export class BridgeInstance {
       await this.baseClient.delete<void>(
         `/bridges/${this.id}/play/${playbackId}`,
       );
-      console.log(`Playback ${playbackId} stopped on bridge ${this.id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error stopping playback on bridge ${this.id}:`, message);
@@ -317,7 +302,6 @@ export class BridgeInstance {
       await this.baseClient.post<void>(
         `/bridges/${this.id}/videoSource/${channelId}`,
       );
-      console.log(`Video source set for bridge ${this.id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(
@@ -336,7 +320,6 @@ export class BridgeInstance {
   async clearVideoSource(): Promise<void> {
     try {
       await this.baseClient.delete<void>(`/bridges/${this.id}/videoSource`);
-      console.log(`Video source removed from bridge ${this.id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(
@@ -392,22 +375,19 @@ export class Bridges {
       if (!id) {
         const instance = new BridgeInstance(this.client, this.baseClient);
         this.bridgeInstances.set(instance.id, instance);
-        console.log(`New bridge instance created with ID: ${instance.id}`);
+
         return instance;
       }
 
       if (!this.bridgeInstances.has(id)) {
         const instance = new BridgeInstance(this.client, this.baseClient, id);
         this.bridgeInstances.set(id, instance);
-        console.log(`New bridge instance created with provided ID: ${id}`);
         return instance;
       }
 
-      console.log(`Returning existing bridge instance: ${id}`);
       return this.bridgeInstances.get(id)!;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error creating/retrieving bridge instance:`, message);
       throw new Error(`Failed to manage bridge instance: ${message}`);
     }
   }
@@ -431,7 +411,6 @@ export class Bridges {
       const instance = this.bridgeInstances.get(bridgeId);
       instance?.removeAllListeners();
       this.bridgeInstances.delete(bridgeId);
-      console.log(`Instância de bridge removida: ${bridgeId}`);
     } else {
       console.warn(`Tentativa de remover instância inexistente: ${bridgeId}`);
     }
@@ -469,9 +448,6 @@ export class Bridges {
       const instance = this.bridgeInstances.get(event.bridge.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Evento propagado para bridge ${event.bridge.id}: ${event.type}`,
-        );
       } else {
         console.warn(
           `Nenhuma instância encontrada para bridge ${event.bridge.id}`,
@@ -494,7 +470,7 @@ export class Bridges {
    * @example
    * try {
    *   const bridges = await bridgesInstance.list();
-   *   console.log('Active bridges:', bridges);
+   *
    * } catch (error) {
    *   console.error('Failed to fetch bridges:', error);
    * }
