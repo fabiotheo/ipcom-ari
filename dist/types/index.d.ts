@@ -17,7 +17,7 @@ export { Applications } from "./ari-client/resources/applications.js";
 export { Sounds } from "./ari-client/resources/sounds.js";
 export { Playbacks, PlaybackInstance, } from "./ari-client/resources/playbacks.js";
 export { Asterisk } from "./ari-client/resources/asterisk.js";
-export { Bridges } from "./ari-client/resources/bridges.js";
+export { Bridges, BridgeInstance } from "./ari-client/resources/bridges.js";
 /**
  * Type Definitions
  * These types and interfaces define the shape of data structures used throughout the API

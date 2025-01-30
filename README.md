@@ -26,11 +26,11 @@ npm install @ipcom/asterisk-ari
 import { AriClient } from '@ipcom/asterisk-ari';
 
 const client = new AriClient({
-  host: 'localhost',      // Asterisk host
-  port: 8088,            // ARI port
-  username: 'username',   // ARI username
-  password: 'password',   // ARI password
-  secure: false          // Use true for HTTPS/WSS
+    host: 'localhost',      // Asterisk host
+    port: 8088,            // ARI port
+    username: 'username',   // ARI username
+    password: 'password',   // ARI password
+    secure: false          // Use true for HTTPS/WSS
 });
 ```
 
@@ -42,16 +42,16 @@ await client.connectWebSocket(['myApp']); // 'myApp' is your application name
 
 // Listen for specific events
 client.on('StasisStart', event => {
-  console.log('New channel started:', event.channel.id);
+    console.log('New channel started:', event.channel.id);
 });
 
 client.on('StasisEnd', event => {
-  console.log('Channel ended:', event.channel.id);
+    console.log('Channel ended:', event.channel.id);
 });
 
 // Listen for DTMF events
 client.on('ChannelDtmfReceived', event => {
-  console.log('DTMF received:', event.digit);
+    console.log('DTMF received:', event.digit);
 });
 
 // Close WebSocket connection
@@ -60,21 +60,32 @@ client.closeWebSocket();
 
 ## Event Instances
 
-### Channel and Playback Instances in Events
+### Channel, Bridge and Playback Instances in Events
 
 When working with WebSocket events, you get access to both the raw event data and convenient instance objects that allow direct interaction with the channel or playback:
 
 ```typescript
 client.on('StasisStart', async event => {
-  // event.channel contains the raw channel data
-  console.log('New channel started:', event.channel.id);
+    // event.channel contains the raw channel data
+    console.log('New channel started:', event.channel.id);
 
-  // event.instanceChannel provides a ready-to-use ChannelInstance
-  const channelInstance = event.instanceChannel;
-  
-  // You can directly interact with the channel through the instance
-  await channelInstance.answer();
-  await channelInstance.play({ media: 'sound:welcome' });
+    // event.instanceChannel provides a ready-to-use ChannelInstance
+    const channelInstance = event.instanceChannel;
+
+    // You can directly interact with the channel through the instance
+    await channelInstance.answer();
+    await channelInstance.play({ media: 'sound:welcome' });
+});
+
+client.on('BridgeCreated', async event => {
+    // event.bridge contains the raw bridge data
+    console.log('Bridge created:', event.bridge.id);
+
+    // event.instanceBridge provides a ready-to-use BridgeInstance
+    const bridgeInstance = event.instanceBridge;
+
+    // Direct control through the instance
+    await bridgeInstance.add({ channel: ['channel-id-1', 'channel-id-2'] });
 });
 
 // Similarly for playback events
@@ -163,6 +174,41 @@ await playback.control('restart'); // Restart
 await playback.stop();            // Stop
 ```
 
+### Bridge Handling
+
+```typescript
+// Create a bridge instance
+const bridge = client.Bridge();
+
+// Create a new bridge with specific settings
+await bridge.getDetails();
+
+// Add channels to the bridge
+await bridge.add({
+  channel: ['channel-id-1', 'channel-id-2']
+});
+
+// Remove channels from the bridge
+await bridge.remove({
+  channel: ['channel-id-1']
+});
+
+// Play audio on the bridge
+const playback = await bridge.playMedia({
+  media: 'sound:announcement',
+  lang: 'en'
+});
+
+// Stop playback on the bridge
+await bridge.stopPlayback(playback.id);
+
+// Set video source
+await bridge.setVideoSource('video-channel-id');
+
+// Clear video source
+await bridge.clearVideoSource();
+```
+
 ### Specific Channel Monitoring
 
 ```typescript
@@ -208,6 +254,39 @@ await channel.pausePlayback(playback.id);
 await channel.resumePlayback(playback.id);
 ```
 
+### Bridge Event Monitoring
+
+```typescript
+// Create an instance for a specific bridge
+const bridge = client.Bridge('bridge-id');
+
+// Monitor bridge events
+bridge.on('BridgeCreated', event => {
+  console.log('Bridge created:', event.bridge.id);
+});
+
+bridge.on('BridgeDestroyed', event => {
+  console.log('Bridge destroyed:', event.bridge.id);
+});
+
+bridge.on('BridgeMerged', event => {
+  console.log('Bridge merged:', event.bridge.id);
+});
+
+// Get bridge details
+const details = await bridge.get();
+console.log('Bridge details:', details);
+
+// Monitor channel events in bridge
+bridge.on('ChannelEnteredBridge', event => {
+  console.log('Channel entered bridge:', event.channel.id);
+});
+
+bridge.on('ChannelLeftBridge', event => {
+  console.log('Channel left bridge:', event.channel.id);
+});
+```
+
 ## Error Handling
 
 ```typescript
@@ -233,15 +312,22 @@ try {
 The library provides complete type definitions for all operations:
 
 ```typescript
-import type { 
-  Channel, 
-  ChannelEvent, 
-  WebSocketEvent 
+import type {
+    Channel,
+    Bridge,
+    ChannelEvent,
+    BridgeEvent,
+    WebSocketEvent
 } from '@ipcom/asterisk-ari';
 
 // Types will be available for use
 const handleChannelEvent = (event: ChannelEvent) => {
   const channelId: string = event.channel.id;
+};
+
+// Types will be available for use
+const handleBridgeEvent = (event: BridgeEvent) => {
+    const bridgeId: string = event.bridge.id;
 };
 ```
 
@@ -249,7 +335,6 @@ const handleChannelEvent = (event: ChannelEvent) => {
 
 The library provides access to many other ARI features:
 
-- Bridge management
 - Endpoint handling
 - Sound manipulation
 - Application control
@@ -263,13 +348,13 @@ The library provides access to many other ARI features:
 ```typescript
 // Create and manage a bridge
 const bridge = await client.bridges.createBridge({
-  type: 'mixing',
-  name: 'myBridge'
+    type: 'mixing',
+    name: 'myBridge'
 });
 
 // Add channels to bridge
 await client.bridges.addChannels(bridge.id, {
-  channel: ['channel-id-1', 'channel-id-2']
+    channel: ['channel-id-1', 'channel-id-2']
 });
 ```
 
@@ -279,10 +364,10 @@ await client.bridges.addChannels(bridge.id, {
 // Start recording on a channel
 const channel = client.Channel('channel-id');
 await channel.record({
-  name: 'recording-name',
-  format: 'wav',
-  maxDurationSeconds: 60,
-  beep: true
+    name: 'recording-name',
+    format: 'wav',
+    maxDurationSeconds: 60,
+    beep: true
 });
 ```
 
@@ -291,9 +376,9 @@ await channel.record({
 ```typescript
 // Create external media channel
 const channel = await client.channels.createExternalMedia({
-  app: 'myApp',
-  external_host: 'media-server:8088',
-  format: 'slin16'
+    app: 'myApp',
+    external_host: 'media-server:8088',
+    format: 'slin16'
 });
 ```
 

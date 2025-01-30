@@ -27,6 +27,7 @@ export type {
   WebSocketEventType,
   ChannelEvent,
   PlaybackEvent,
+  BridgeEvent,
 } from "./events.types.js";
 export type {
   AddChannelRequest,

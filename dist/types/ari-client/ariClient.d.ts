@@ -1,7 +1,7 @@
 import type { AriClientConfig, WebSocketEvent, WebSocketEventType } from "./interfaces";
 import { Applications } from "./resources/applications.js";
 import { Asterisk } from "./resources/asterisk";
-import { Bridges } from "./resources/bridges";
+import { type BridgeInstance, Bridges } from "./resources/bridges";
 import { type ChannelInstance, Channels } from "./resources/channels.js";
 import { Endpoints } from "./resources/endpoints";
 import { type PlaybackInstance, Playbacks } from "./resources/playbacks";
@@ -95,6 +95,18 @@ export declare class AriClient {
      * @returns {PlaybackInstance} A new or existing playback instance
      */
     Playback(playbackId?: string, _app?: string): PlaybackInstance;
+    /**
+     * Creates or retrieves a Bridge instance.
+     *
+     * This function allows you to create a new Bridge instance or retrieve an existing one
+     * based on the provided bridge ID.
+     *
+     * @param {string} [bridgeId] - Optional ID of an existing bridge. If provided, retrieves the
+     *                               existing bridge with this ID. If omitted, creates a new bridge.
+     * @returns {BridgeInstance} A new or existing Bridge instance that can be used to interact
+     *                           with the Asterisk bridge.
+     */
+    Bridge(bridgeId?: string): BridgeInstance;
     /**
      * Gets the current WebSocket connection status.
      *

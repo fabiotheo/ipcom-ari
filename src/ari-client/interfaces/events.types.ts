@@ -1,10 +1,12 @@
 import type { ChannelInstance } from "../resources/channels";
 import type { PlaybackInstance, Playbacks } from "../resources/playbacks";
+import type { Bridge } from "./bridges.types";
 import type { Channel } from "./channels.types";
 import type { Playback } from "./playbacks.types";
 
 export type ChannelEvent = Extract<WebSocketEvent, { channel: Channel }>;
 export type PlaybackEvent = Extract<WebSocketEvent, { playback: Playback }>;
+export type BridgeEvent = Extract<WebSocketEvent, { bridge: Bridge }>;
 
 export type WebSocketEventType =
   | "DeviceStateChanged"
@@ -45,6 +47,15 @@ export type WebSocketEventType =
   | "TextMessageReceived"
   | "ChannelConnectedLine"
   | "PeerStatusChange";
+
+export const bridgeEvents = [
+  "BridgeCreated",
+  "BridgeDestroyed",
+  "BridgeMerged",
+  "BridgeBlindTransfer",
+  "BridgeAttendedTransfer",
+  "BridgeVideoSourceChanged",
+];
 
 export type WebSocketEvent =
   | {

@@ -14,7 +14,7 @@ export class Applications {
 
   /**
    * Lists all applications.
-   * 
+   *
    * @returns A promise that resolves to an array of Application objects.
    * @throws {Error} If the API response is not an array.
    */
@@ -30,7 +30,7 @@ export class Applications {
 
   /**
    * Retrieves details of a specific application.
-   * 
+   *
    * @param appName - The name of the application to retrieve details for.
    * @returns A promise that resolves to an ApplicationDetails object.
    * @throws {Error} If there's an error fetching the application details.
@@ -48,7 +48,7 @@ export class Applications {
 
   /**
    * Sends a message to a specific application.
-   * 
+   *
    * @param appName - The name of the application to send the message to.
    * @param body - The message to be sent, containing an event and optional data.
    * @returns A promise that resolves when the message is successfully sent.

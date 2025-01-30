@@ -6,7 +6,7 @@ import type {
 } from "./interfaces";
 import { Applications } from "./resources/applications.js";
 import { Asterisk } from "./resources/asterisk";
-import { Bridges } from "./resources/bridges";
+import { type BridgeInstance, Bridges } from "./resources/bridges";
 import { type ChannelInstance, Channels } from "./resources/channels.js";
 import { Endpoints } from "./resources/endpoints";
 import { type PlaybackInstance, Playbacks } from "./resources/playbacks";
@@ -61,11 +61,11 @@ export class AriClient {
     // Initialize resource handlers
     this.channels = new Channels(this.baseClient, this);
     this.playbacks = new Playbacks(this.baseClient, this);
+    this.bridges = new Bridges(this.baseClient, this);
     this.endpoints = new Endpoints(this.baseClient);
     this.applications = new Applications(this.baseClient);
     this.sounds = new Sounds(this.baseClient);
     this.asterisk = new Asterisk(this.baseClient);
-    this.bridges = new Bridges(this.baseClient);
 
     console.log(`ARI Client initialized with base URL: ${baseUrl}`);
   }
@@ -79,8 +79,8 @@ export class AriClient {
    * @throws {Error} If connection fails or if WebSocket is already connected
    */
   public async connectWebSocket(
-      apps: string[],
-      subscribedEvents?: WebSocketEventType[],
+    apps: string[],
+    subscribedEvents?: WebSocketEventType[],
   ): Promise<void> {
     if (!apps.length) {
       throw new Error("At least one application name is required");
@@ -93,10 +93,10 @@ export class AriClient {
 
     try {
       this.webSocketClient = new WebSocketClient(
-          this.baseClient,
-          apps,
-          subscribedEvents,
-          this,
+        this.baseClient,
+        apps,
+        subscribedEvents,
+        this,
       );
       await this.webSocketClient.connect();
       console.log("WebSocket connection established successfully");
@@ -115,8 +115,8 @@ export class AriClient {
    * @throws {Error} If WebSocket is not connected
    */
   public on<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
@@ -133,8 +133,8 @@ export class AriClient {
    * @throws {Error} If WebSocket is not connected
    */
   public once<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
@@ -150,8 +150,8 @@ export class AriClient {
    * @param {Function} listener - The listener function to remove
    */
   public off<T extends WebSocketEvent["type"]>(
-      event: T,
-      listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    event: T,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
   ): void {
     if (!this.webSocketClient) {
       console.warn("No WebSocket connection to remove listener from");
@@ -193,6 +193,21 @@ export class AriClient {
    */
   public Playback(playbackId?: string, _app?: string): PlaybackInstance {
     return this.playbacks.Playback({ id: playbackId });
+  }
+
+  /**
+   * Creates or retrieves a Bridge instance.
+   *
+   * This function allows you to create a new Bridge instance or retrieve an existing one
+   * based on the provided bridge ID.
+   *
+   * @param {string} [bridgeId] - Optional ID of an existing bridge. If provided, retrieves the
+   *                               existing bridge with this ID. If omitted, creates a new bridge.
+   * @returns {BridgeInstance} A new or existing Bridge instance that can be used to interact
+   *                           with the Asterisk bridge.
+   */
+  public Bridge(bridgeId?: string): BridgeInstance {
+    return this.bridges.Bridge({ id: bridgeId });
   }
 
   /**
