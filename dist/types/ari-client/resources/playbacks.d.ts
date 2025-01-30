@@ -127,7 +127,7 @@ export declare class Playbacks {
      * @returns {Promise<Playback>} Promise resolving to playback details
      * @throws {Error} If the playback ID is invalid or the request fails
      */
-    getDetails(playbackId: string): Promise<Playback>;
+    get(playbackId: string): Promise<Playback>;
     /**
      * Controls a specific playback instance
      * @param {string} playbackId - ID of the playback to control

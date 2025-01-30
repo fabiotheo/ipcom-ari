@@ -5,7 +5,7 @@ import type { AriClient } from "./ariClient";
 import type { BaseClient } from "./baseClient.js";
 import type { WebSocketEvent, WebSocketEventType } from "./interfaces";
 
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 30;
 const DEFAULT_STARTING_DELAY = 500;
 const DEFAULT_MAX_DELAY = 10000;
 
@@ -17,6 +17,8 @@ export class WebSocketClient extends EventEmitter {
   private ws?: WebSocket;
   private isReconnecting = false;
   private readonly maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
+  private reconnectionAttempts = 0;
+  private lastWsUrl: string = "";
 
   private readonly backOffOptions: IBackOffOptions = {
     numOfAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
@@ -27,26 +29,31 @@ export class WebSocketClient extends EventEmitter {
     delayFirstAttempt: false,
     retry: (error: Error, attemptNumber: number) => {
       console.warn(
-          `Connection attempt #${attemptNumber} failed:`,
-          error.message || 'Unknown error'
+        `Connection attempt #${attemptNumber} failed:`,
+        error.message || "Unknown error",
       );
       return attemptNumber < this.maxReconnectAttempts;
     },
   };
 
   /**
-   * Creates a new WebSocket client instance.
+   * Creates a new WebSocketClient instance.
    *
-   * @param {BaseClient} baseClient - The base client containing connection details
-   * @param {string[]} apps - List of applications to connect to
-   * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of events to subscribe to
-   * @param {AriClient} [ariClient] - Optional ARI client for handling channel and playback events
+   * This constructor initializes a WebSocketClient with the necessary dependencies and configuration.
+   * It ensures that at least one application name is provided.
+   *
+   * @param baseClient - The BaseClient instance used for basic ARI operations and authentication.
+   * @param apps - An array of application names to connect to via the WebSocket.
+   * @param subscribedEvents - Optional. An array of WebSocketEventTypes to subscribe to. If not provided, all events will be subscribed.
+   * @param ariClient - Optional. The AriClient instance, used for creating Channel and Playback instances when processing events.
+   *
+   * @throws {Error} Throws an error if the apps array is empty.
    */
   constructor(
-      private readonly baseClient: BaseClient,
-      private readonly apps: string[],
-      private readonly subscribedEvents?: WebSocketEventType[],
-      private readonly ariClient?: AriClient,
+    private readonly baseClient: BaseClient,
+    private readonly apps: string[],
+    private readonly subscribedEvents?: WebSocketEventType[],
+    private readonly ariClient?: AriClient,
   ) {
     super();
 
@@ -56,46 +63,54 @@ export class WebSocketClient extends EventEmitter {
   }
 
   /**
-   * Establishes a WebSocket connection.
+   * Establishes a WebSocket connection to the Asterisk server.
    *
-   * @returns {Promise<void>} Resolves when connection is established
-   * @throws {Error} If connection fails
+   * This method constructs the WebSocket URL using the base URL, credentials,
+   * application names, and subscribed events. It then initiates the connection
+   * using the constructed URL.
+   *
+   * @returns A Promise that resolves when the WebSocket connection is successfully established.
+   * @throws Will throw an error if the connection cannot be established.
    */
   public async connect(): Promise<void> {
     const { baseUrl, username, password } = this.baseClient.getCredentials();
 
-    // Determine correct protocol
     const protocol = baseUrl.startsWith("https") ? "wss" : "ws";
-
-    // Normalize host
     const normalizedHost = baseUrl
-        .replace(/^https?:\/\//, "")
-        .replace(/\/ari$/, "");
+      .replace(/^https?:\/\//, "")
+      .replace(/\/ari$/, "");
 
-    // Prepare query parameters
     const queryParams = new URLSearchParams();
     queryParams.append("app", this.apps.join(","));
 
     if (this.subscribedEvents?.length) {
-      this.subscribedEvents.forEach(event =>
-          queryParams.append("event", event)
+      this.subscribedEvents.forEach((event) =>
+        queryParams.append("event", event),
       );
     } else {
       queryParams.append("subscribeAll", "true");
     }
 
-    // Build final WebSocket URL
-    const wsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
 
     console.log("Connecting to WebSocket...");
-    return this.initializeWebSocket(wsUrl);
+    return this.initializeWebSocket(this.lastWsUrl);
   }
 
   /**
-   * Initializes WebSocket connection with reconnection logic.
+   * Initializes a WebSocket connection with exponential backoff retry mechanism.
    *
-   * @param {string} wsUrl - The WebSocket URL to connect to
-   * @returns {Promise<void>} Resolves when connection is established
+   * This method attempts to establish a WebSocket connection to the specified URL.
+   * It sets up event listeners for the WebSocket's 'open', 'message', 'close', and 'error' events.
+   * If the connection is successful, it emits a 'connected' event. If it's a reconnection,
+   * it also emits a 'reconnected' event with the current apps and subscribed events.
+   * In case of connection failure, it uses an exponential backoff strategy to retry.
+   *
+   * @param wsUrl - The WebSocket URL to connect to.
+   * @returns A Promise that resolves when the connection is successfully established,
+   *          or rejects if an error occurs during the connection process.
+   * @throws Will throw an error if the WebSocket connection cannot be established
+   *         after the maximum number of retry attempts.
    */
   private async initializeWebSocket(wsUrl: string): Promise<void> {
     return backOff(async () => {
@@ -105,7 +120,14 @@ export class WebSocketClient extends EventEmitter {
 
           this.ws.on("open", () => {
             console.log("WebSocket connection established successfully");
+            if (this.isReconnecting) {
+              this.emit("reconnected", {
+                apps: this.apps,
+                subscribedEvents: this.subscribedEvents,
+              });
+            }
             this.isReconnecting = false;
+            this.reconnectionAttempts = 0;
             this.emit("connected");
             resolve();
           });
@@ -114,17 +136,17 @@ export class WebSocketClient extends EventEmitter {
 
           this.ws.on("close", (code) => {
             console.warn(
-                `WebSocket disconnected with code ${code}. Attempting to reconnect...`
+              `WebSocket disconnected with code ${code}. Attempting to reconnect...`,
             );
             if (!this.isReconnecting) {
-              this.reconnect(wsUrl);
+              this.reconnect(this.lastWsUrl);
             }
           });
 
           this.ws.on("error", (err: Error) => {
             console.error("WebSocket error:", err.message);
             if (!this.isReconnecting) {
-              this.reconnect(wsUrl);
+              this.reconnect(this.lastWsUrl);
             }
             reject(err);
           });
@@ -136,30 +158,34 @@ export class WebSocketClient extends EventEmitter {
   }
 
   /**
-   * Processes incoming WebSocket messages.
+   * Handles incoming WebSocket messages by parsing and processing events.
    *
-   * @param {string} rawMessage - The raw message received from WebSocket
+   * This method parses the raw message into a WebSocketEvent, filters it based on
+   * subscribed events (if any), processes channel and playback events, and emits
+   * the event to listeners. It also handles any errors that occur during processing.
+   *
+   * @param rawMessage - The raw message string received from the WebSocket connection.
+   * @returns void This method doesn't return a value but emits events.
+   *
+   * @throws Will emit an 'error' event if the message cannot be parsed or processed.
    */
   private handleMessage(rawMessage: string): void {
     try {
       const event: WebSocketEvent = JSON.parse(rawMessage);
 
-      // Filter unsubscribed events
       if (
-          this.subscribedEvents?.length &&
-          !this.subscribedEvents.includes(event.type as WebSocketEventType)
+        this.subscribedEvents?.length &&
+        !this.subscribedEvents.includes(event.type as WebSocketEventType)
       ) {
         return;
       }
 
-      // Process channel-related events
       if ("channel" in event && event.channel?.id && this.ariClient) {
         const instanceChannel = this.ariClient.Channel(event.channel.id);
         instanceChannel.emitEvent(event);
         event.instanceChannel = instanceChannel;
       }
 
-      // Process playback-related events
       if ("playback" in event && event.playback?.id && this.ariClient) {
         const instancePlayback = this.ariClient.Playback(event.playback.id);
         instancePlayback.emitEvent(event);
@@ -167,35 +193,53 @@ export class WebSocketClient extends EventEmitter {
       }
 
       this.emit(event.type, event);
-      console.log(`Event processed: ${event.type}`);
     } catch (error) {
-      console.error("Error processing WebSocket message:", error instanceof Error ? error.message : 'Unknown error');
+      console.error(
+        "Error processing WebSocket message:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       this.emit("error", new Error("Failed to decode WebSocket message"));
     }
   }
 
   /**
-   * Attempts to reconnect to the WebSocket.
+   * Attempts to reconnect to the WebSocket server using an exponential backoff strategy.
    *
-   * @param {string} wsUrl - The WebSocket URL to reconnect to
+   * This method is called when the WebSocket connection is closed unexpectedly.
+   * It increments the reconnection attempt counter, logs the attempt, and uses
+   * the backOff utility to retry the connection with exponential delays between attempts.
+   *
+   * @param wsUrl - The WebSocket URL to reconnect to.
+   * @returns void - This method doesn't return a value.
+   *
+   * @emits reconnectFailed - Emitted if all reconnection attempts fail.
    */
   private reconnect(wsUrl: string): void {
     this.isReconnecting = true;
-    console.log("Initiating reconnection attempt...");
-    this.removeAllListeners();
+    this.reconnectionAttempts++;
+    console.log(
+      `Initiating reconnection attempt #${this.reconnectionAttempts}...`,
+    );
 
-    backOff(() => this.initializeWebSocket(wsUrl), this.backOffOptions)
-        .catch((error) => {
-          console.error(
-              "Failed to reconnect after multiple attempts:",
-              error instanceof Error ? error.message : 'Unknown error'
-          );
-          this.emit("reconnectFailed", error);
-        });
+    backOff(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
+      (error) => {
+        console.error(
+          `Failed to reconnect after ${this.reconnectionAttempts} attempts:`,
+          error instanceof Error ? error.message : "Unknown error",
+        );
+        this.emit("reconnectFailed", error);
+      },
+    );
   }
 
   /**
-   * Manually closes the WebSocket connection.
+   * Closes the WebSocket connection if it exists.
+   *
+   * This method attempts to gracefully close the WebSocket connection
+   * and sets the WebSocket instance to undefined. If an error occurs
+   * during the closing process, it will be caught and logged.
+   *
+   * @throws {Error} Logs an error message if closing the WebSocket fails.
    */
   public close(): void {
     try {
@@ -205,25 +249,39 @@ export class WebSocketClient extends EventEmitter {
         console.log("WebSocket connection closed");
       }
     } catch (error) {
-      console.error("Error closing WebSocket:",
-          error instanceof Error ? error.message : 'Unknown error'
+      console.error(
+        "Error closing WebSocket:",
+        error instanceof Error ? error.message : "Unknown error",
       );
     }
   }
 
   /**
-   * Checks if the WebSocket is currently connected.
+   * Checks if the WebSocket connection is currently open and active.
    *
-   * @returns {boolean} True if connected, false otherwise
+   * This method provides a way to determine the current state of the WebSocket connection.
+   * It checks if the WebSocket's readyState property is equal to WebSocket.OPEN,
+   * which indicates an active connection.
+   *
+   * @returns {boolean} True if the WebSocket connection is open and active, false otherwise.
    */
   public isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
   /**
-   * Gets the current connection state.
+   * Retrieves the current state of the WebSocket connection.
    *
-   * @returns {number} The WebSocket ready state
+   * This method provides a way to check the current state of the WebSocket connection.
+   * It returns a number corresponding to one of the WebSocket readyState values:
+   * - 0 (CONNECTING): The connection is not yet open.
+   * - 1 (OPEN): The connection is open and ready to communicate.
+   * - 2 (CLOSING): The connection is in the process of closing.
+   * - 3 (CLOSED): The connection is closed or couldn't be opened.
+   *
+   * If the WebSocket instance doesn't exist, it returns WebSocket.CLOSED (3).
+   *
+   * @returns {number} A number representing the current state of the WebSocket connection.
    */
   public getState(): number {
     return this.ws?.readyState ?? WebSocket.CLOSED;

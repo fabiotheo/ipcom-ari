@@ -45,7 +45,6 @@ export class PlaybackInstance {
     private readonly playbackId: string = `playback-${Date.now()}`,
   ) {
     this.id = playbackId;
-    console.log(`PlaybackInstance initialized with ID: ${this.id}`);
   }
 
   /**
@@ -68,9 +67,6 @@ export class PlaybackInstance {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(
-      `Event listener registered for ${event} on playback ${this.id}`,
-    );
   }
 
   /**
@@ -93,9 +89,6 @@ export class PlaybackInstance {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time event listener registered for ${event} on playback ${this.id}`,
-    );
   }
 
   /**
@@ -114,12 +107,8 @@ export class PlaybackInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on playback ${this.id}`,
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on playback ${this.id}`);
     }
   }
 
@@ -136,7 +125,6 @@ export class PlaybackInstance {
 
     if ("playback" in event && event.playback?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for playback ${this.id}`);
     }
   }
 
@@ -155,11 +143,10 @@ export class PlaybackInstance {
       this.playbackData = await this.baseClient.get<Playback>(
         `/playbacks/${this.id}`,
       );
-      console.log(`Retrieved playback data for ${this.id}`);
       return this.playbackData;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error retrieving playback data for ${this.id}:`, message);
+      console.warn(`Error retrieving playback data for ${this.id}:`, message);
       throw new Error(`Failed to get playback data: ${message}`);
     }
   }
@@ -181,12 +168,9 @@ export class PlaybackInstance {
       await this.baseClient.post<void>(
         `/playbacks/${this.id}/control?operation=${operation}`,
       );
-      console.log(
-        `Operation ${operation} executed successfully on playback ${this.id}`,
-      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error controlling playback ${this.id}:`, message);
+      console.warn(`Error controlling playback ${this.id}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
   }
@@ -203,10 +187,9 @@ export class PlaybackInstance {
 
     try {
       await this.baseClient.delete<void>(`/playbacks/${this.id}`);
-      console.log(`Playback ${this.id} stopped successfully`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error stopping playback ${this.id}:`, message);
+      console.warn(`Error stopping playback ${this.id}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
   }
@@ -216,7 +199,6 @@ export class PlaybackInstance {
    */
   removeAllListeners(): void {
     this.eventEmitter.removeAllListeners();
-    console.log(`All listeners removed from playback ${this.id}`);
   }
 
   /**
@@ -265,22 +247,19 @@ export class Playbacks {
       if (!id) {
         const instance = new PlaybackInstance(this.client, this.baseClient);
         this.playbackInstances.set(instance.id, instance);
-        console.log(`New playback instance created with ID: ${instance.id}`);
         return instance;
       }
 
       if (!this.playbackInstances.has(id)) {
         const instance = new PlaybackInstance(this.client, this.baseClient, id);
         this.playbackInstances.set(id, instance);
-        console.log(`New playback instance created with provided ID: ${id}`);
         return instance;
       }
 
-      console.log(`Returning existing playback instance: ${id}`);
       return this.playbackInstances.get(id)!;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error creating/retrieving playback instance:`, message);
+      console.warn(`Error creating/retrieving playback instance:`, message);
       throw new Error(`Failed to manage playback instance: ${message}`);
     }
   }
@@ -299,7 +278,6 @@ export class Playbacks {
       const instance = this.playbackInstances.get(playbackId);
       instance?.removeAllListeners();
       this.playbackInstances.delete(playbackId);
-      console.log(`Playback instance removed: ${playbackId}`);
     } else {
       console.warn(`Attempt to remove non-existent instance: ${playbackId}`);
     }
@@ -311,7 +289,6 @@ export class Playbacks {
    */
   propagateEventToPlayback(event: WebSocketEvent): void {
     if (!event) {
-      console.warn("Invalid WebSocket event received");
       return;
     }
 
@@ -319,9 +296,6 @@ export class Playbacks {
       const instance = this.playbackInstances.get(event.playback.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Event propagated to playback ${event.playback.id}: ${event.type}`,
-        );
       } else {
         console.warn(`No instance found for playback ${event.playback.id}`);
       }
@@ -334,7 +308,7 @@ export class Playbacks {
    * @returns {Promise<Playback>} Promise resolving to playback details
    * @throws {Error} If the playback ID is invalid or the request fails
    */
-  async getDetails(playbackId: string): Promise<Playback> {
+  async get(playbackId: string): Promise<Playback> {
     if (!playbackId) {
       throw new Error("Playback ID is required");
     }
@@ -343,7 +317,7 @@ export class Playbacks {
       return await this.baseClient.get<Playback>(`/playbacks/${playbackId}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error getting playback details ${playbackId}:`, message);
+      console.warn(`Error getting playback details ${playbackId}:`, message);
       throw new Error(`Failed to get playback details: ${message}`);
     }
   }
@@ -365,10 +339,9 @@ export class Playbacks {
     try {
       const playback = this.Playback({ id: playbackId });
       await playback.control(operation);
-      console.log(`Operation ${operation} executed on playback ${playbackId}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error controlling playback ${playbackId}:`, message);
+      console.warn(`Error controlling playback ${playbackId}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
   }
@@ -386,10 +359,9 @@ export class Playbacks {
     try {
       const playback = this.Playback({ id: playbackId });
       await playback.stop();
-      console.log(`Playback ${playbackId} stopped`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error stopping playback ${playbackId}:`, message);
+      console.warn(`Error stopping playback ${playbackId}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
   }

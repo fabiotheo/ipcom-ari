@@ -618,7 +618,9 @@ var BaseClient = class {
     this.username = username;
     this.password = password;
     if (!/^https?:\/\/.+/.test(baseUrl)) {
-      throw new Error("Invalid base URL. It must start with http:// or https://");
+      throw new Error(
+        "Invalid base URL. It must start with http:// or https://"
+      );
     }
     this.client = import_axios.default.create({
       baseURL: baseUrl,
@@ -629,7 +631,6 @@ var BaseClient = class {
       }
     });
     this.addInterceptors();
-    console.log(`BaseClient initialized for ${baseUrl}`);
   }
   client;
   /**
@@ -654,7 +655,6 @@ var BaseClient = class {
   addInterceptors() {
     this.client.interceptors.request.use(
       (config) => {
-        console.log(`[Request] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
@@ -665,7 +665,6 @@ var BaseClient = class {
     );
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`[Response] ${response.status} ${response.config.url}`);
         return response;
       },
       (error) => {
@@ -788,7 +787,6 @@ var BaseClient = class {
       ...this.client.defaults.headers.common,
       ...headers
     };
-    console.log("Updated client headers");
   }
   /**
    * Gets the current request timeout setting.
@@ -801,7 +799,6 @@ var BaseClient = class {
    */
   setTimeout(timeout) {
     this.client.defaults.timeout = timeout;
-    console.log(`Updated timeout to ${timeout}ms`);
   }
 };
 
@@ -1094,7 +1091,6 @@ var ChannelInstance = class {
     this.client = client;
     this.baseClient = baseClient;
     this.id = channelId || `channel-${Date.now()}`;
-    console.log(`Channel instance initialized with ID: ${this.id}`);
   }
   eventEmitter = new import_events.EventEmitter();
   channelData = null;
@@ -1112,7 +1108,6 @@ var ChannelInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(`Event listener registered for ${event} on channel ${this.id}`);
   }
   /**
    * Registers a one-time event listener
@@ -1127,9 +1122,6 @@ var ChannelInstance = class {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time event listener registered for ${event} on channel ${this.id}`
-    );
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -1146,12 +1138,8 @@ var ChannelInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on channel ${this.id}`
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on channel ${this.id}`);
     }
   }
   /**
@@ -1164,7 +1152,6 @@ var ChannelInstance = class {
     }
     if ("channel" in event && event.channel?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for channel ${this.id}`);
     }
   }
   /**
@@ -1174,7 +1161,6 @@ var ChannelInstance = class {
    * @return {void} This method does not return a value.
    */
   removeAllListeners() {
-    console.log(`Removendo todos os listeners para o canal ${this.id}`);
     this.eventEmitter.removeAllListeners();
   }
   /**
@@ -1183,7 +1169,6 @@ var ChannelInstance = class {
   async answer() {
     try {
       await this.baseClient.post(`/channels/${this.id}/answer`);
-      console.log(`Channel ${this.id} answered`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error answering channel ${this.id}:`, message);
@@ -1206,9 +1191,6 @@ var ChannelInstance = class {
         "/channels",
         data
       );
-      console.log(
-        `Channel originated successfully with ID: ${this.channelData.id}`
-      );
       return this.channelData;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1225,7 +1207,6 @@ var ChannelInstance = class {
     }
     try {
       if (!this.channelData) {
-        console.log("Initializing channel details...");
         this.channelData = await this.getDetails();
       }
       const playback = this.client.Playback(playbackId || v4_default());
@@ -1233,7 +1214,6 @@ var ChannelInstance = class {
         `/channels/${this.id}/play/${playback.id}`,
         options
       );
-      console.log(`Media playback started on channel ${this.id}`);
       return playback;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1256,7 +1236,6 @@ var ChannelInstance = class {
         `/channels/${this.id}`
       );
       this.channelData = details;
-      console.log(`Retrieved channel details for ${this.id}`);
       return details;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1303,7 +1282,6 @@ var ChannelInstance = class {
    */
   async hangup() {
     if (!this.channelData) {
-      console.log("Canal n\xE3o inicializado, buscando detalhes...");
       this.channelData = await this.getDetails();
     }
     if (!this.channelData?.id) {
@@ -1492,16 +1470,13 @@ var Channels = class {
       if (!id) {
         const instance = new ChannelInstance(this.client, this.baseClient);
         this.channelInstances.set(instance.id, instance);
-        console.log(`New channel instance created with ID: ${instance.id}`);
         return instance;
       }
       if (!this.channelInstances.has(id)) {
         const instance = new ChannelInstance(this.client, this.baseClient, id);
         this.channelInstances.set(id, instance);
-        console.log(`New channel instance created with provided ID: ${id}`);
         return instance;
       }
-      console.log(`Returning existing channel instance: ${id}`);
       return this.channelInstances.get(id);
     } catch (error) {
       const message = getErrorMessage(error);
@@ -1521,9 +1496,7 @@ var Channels = class {
       if (!id) {
         throw new Error("No channel ID associated with this instance");
       }
-      const details = await this.baseClient.get(`/channels/${id}`);
-      console.log(`Retrieved channel details for ${id}`);
-      return details;
+      return await this.baseClient.get(`/channels/${id}`);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error retrieving channel details for ${id}:`, message);
@@ -1541,7 +1514,6 @@ var Channels = class {
       const instance = this.channelInstances.get(channelId);
       instance?.removeAllListeners();
       this.channelInstances.delete(channelId);
-      console.log(`Channel instance removed: ${channelId}`);
     } else {
       console.warn(`Attempt to remove non-existent instance: ${channelId}`);
     }
@@ -1558,9 +1530,6 @@ var Channels = class {
       const instance = this.channelInstances.get(event.channel.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Event propagated to channel ${event.channel.id}: ${event.type}`
-        );
       } else {
         console.warn(`No instance found for channel ${event.channel.id}`);
       }
@@ -1574,9 +1543,7 @@ var Channels = class {
       throw new Error("Endpoint is required for channel origination");
     }
     try {
-      const channel = await this.baseClient.post("/channels", data);
-      console.log(`Channel originated successfully with ID: ${channel.id}`);
-      return channel;
+      return await this.baseClient.post("/channels", data);
     } catch (error) {
       const message = getErrorMessage(error);
       console.error(`Error originating channel:`, message);
@@ -1592,7 +1559,6 @@ var Channels = class {
       if (!Array.isArray(channels)) {
         throw new Error("API response for /channels is not an array");
       }
-      console.log(`Retrieved ${channels.length} active channels`);
       return channels;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -2046,7 +2012,6 @@ var PlaybackInstance = class {
     this.baseClient = baseClient;
     this.playbackId = playbackId;
     this.id = playbackId;
-    console.log(`PlaybackInstance initialized with ID: ${this.id}`);
   }
   eventEmitter = new import_events2.EventEmitter();
   playbackData = null;
@@ -2067,9 +2032,6 @@ var PlaybackInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(
-      `Event listener registered for ${event} on playback ${this.id}`
-    );
   }
   /**
    * Registers a one-time event listener for a specific WebSocket event type.
@@ -2087,9 +2049,6 @@ var PlaybackInstance = class {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time event listener registered for ${event} on playback ${this.id}`
-    );
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -2103,12 +2062,8 @@ var PlaybackInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on playback ${this.id}`
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on playback ${this.id}`);
     }
   }
   /**
@@ -2123,7 +2078,6 @@ var PlaybackInstance = class {
     }
     if ("playback" in event && event.playback?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for playback ${this.id}`);
     }
   }
   /**
@@ -2140,11 +2094,10 @@ var PlaybackInstance = class {
       this.playbackData = await this.baseClient.get(
         `/playbacks/${this.id}`
       );
-      console.log(`Retrieved playback data for ${this.id}`);
       return this.playbackData;
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error retrieving playback data for ${this.id}:`, message);
+      console.warn(`Error retrieving playback data for ${this.id}:`, message);
       throw new Error(`Failed to get playback data: ${message}`);
     }
   }
@@ -2162,12 +2115,9 @@ var PlaybackInstance = class {
       await this.baseClient.post(
         `/playbacks/${this.id}/control?operation=${operation}`
       );
-      console.log(
-        `Operation ${operation} executed successfully on playback ${this.id}`
-      );
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error controlling playback ${this.id}:`, message);
+      console.warn(`Error controlling playback ${this.id}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
   }
@@ -2182,10 +2132,9 @@ var PlaybackInstance = class {
     }
     try {
       await this.baseClient.delete(`/playbacks/${this.id}`);
-      console.log(`Playback ${this.id} stopped successfully`);
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error stopping playback ${this.id}:`, message);
+      console.warn(`Error stopping playback ${this.id}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
   }
@@ -2194,7 +2143,6 @@ var PlaybackInstance = class {
    */
   removeAllListeners() {
     this.eventEmitter.removeAllListeners();
-    console.log(`All listeners removed from playback ${this.id}`);
   }
   /**
    * Checks if the playback instance has any listeners for a specific event.
@@ -2232,20 +2180,17 @@ var Playbacks = class {
       if (!id) {
         const instance = new PlaybackInstance(this.client, this.baseClient);
         this.playbackInstances.set(instance.id, instance);
-        console.log(`New playback instance created with ID: ${instance.id}`);
         return instance;
       }
       if (!this.playbackInstances.has(id)) {
         const instance = new PlaybackInstance(this.client, this.baseClient, id);
         this.playbackInstances.set(id, instance);
-        console.log(`New playback instance created with provided ID: ${id}`);
         return instance;
       }
-      console.log(`Returning existing playback instance: ${id}`);
       return this.playbackInstances.get(id);
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error creating/retrieving playback instance:`, message);
+      console.warn(`Error creating/retrieving playback instance:`, message);
       throw new Error(`Failed to manage playback instance: ${message}`);
     }
   }
@@ -2262,7 +2207,6 @@ var Playbacks = class {
       const instance = this.playbackInstances.get(playbackId);
       instance?.removeAllListeners();
       this.playbackInstances.delete(playbackId);
-      console.log(`Playback instance removed: ${playbackId}`);
     } else {
       console.warn(`Attempt to remove non-existent instance: ${playbackId}`);
     }
@@ -2273,16 +2217,12 @@ var Playbacks = class {
    */
   propagateEventToPlayback(event) {
     if (!event) {
-      console.warn("Invalid WebSocket event received");
       return;
     }
     if ("playback" in event && event.playback?.id) {
       const instance = this.playbackInstances.get(event.playback.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Event propagated to playback ${event.playback.id}: ${event.type}`
-        );
       } else {
         console.warn(`No instance found for playback ${event.playback.id}`);
       }
@@ -2294,7 +2234,7 @@ var Playbacks = class {
    * @returns {Promise<Playback>} Promise resolving to playback details
    * @throws {Error} If the playback ID is invalid or the request fails
    */
-  async getDetails(playbackId) {
+  async get(playbackId) {
     if (!playbackId) {
       throw new Error("Playback ID is required");
     }
@@ -2302,7 +2242,7 @@ var Playbacks = class {
       return await this.baseClient.get(`/playbacks/${playbackId}`);
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error getting playback details ${playbackId}:`, message);
+      console.warn(`Error getting playback details ${playbackId}:`, message);
       throw new Error(`Failed to get playback details: ${message}`);
     }
   }
@@ -2319,10 +2259,9 @@ var Playbacks = class {
     try {
       const playback = this.Playback({ id: playbackId });
       await playback.control(operation);
-      console.log(`Operation ${operation} executed on playback ${playbackId}`);
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error controlling playback ${playbackId}:`, message);
+      console.warn(`Error controlling playback ${playbackId}:`, message);
       throw new Error(`Failed to control playback: ${message}`);
     }
   }
@@ -2338,10 +2277,9 @@ var Playbacks = class {
     try {
       const playback = this.Playback({ id: playbackId });
       await playback.stop();
-      console.log(`Playback ${playbackId} stopped`);
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error stopping playback ${playbackId}:`, message);
+      console.warn(`Error stopping playback ${playbackId}:`, message);
       throw new Error(`Failed to stop playback: ${message}`);
     }
   }
@@ -2397,17 +2335,22 @@ var Sounds = class {
 var import_events3 = require("events");
 var import_exponential_backoff = __toESM(require_backoff(), 1);
 var import_ws = __toESM(require("ws"), 1);
-var DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
+var DEFAULT_MAX_RECONNECT_ATTEMPTS = 30;
 var DEFAULT_STARTING_DELAY = 500;
 var DEFAULT_MAX_DELAY = 1e4;
 var WebSocketClient = class extends import_events3.EventEmitter {
   /**
-   * Creates a new WebSocket client instance.
+   * Creates a new WebSocketClient instance.
    *
-   * @param {BaseClient} baseClient - The base client containing connection details
-   * @param {string[]} apps - List of applications to connect to
-   * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of events to subscribe to
-   * @param {AriClient} [ariClient] - Optional ARI client for handling channel and playback events
+   * This constructor initializes a WebSocketClient with the necessary dependencies and configuration.
+   * It ensures that at least one application name is provided.
+   *
+   * @param baseClient - The BaseClient instance used for basic ARI operations and authentication.
+   * @param apps - An array of application names to connect to via the WebSocket.
+   * @param subscribedEvents - Optional. An array of WebSocketEventTypes to subscribe to. If not provided, all events will be subscribed.
+   * @param ariClient - Optional. The AriClient instance, used for creating Channel and Playback instances when processing events.
+   *
+   * @throws {Error} Throws an error if the apps array is empty.
    */
   constructor(baseClient, apps, subscribedEvents, ariClient) {
     super();
@@ -2422,6 +2365,8 @@ var WebSocketClient = class extends import_events3.EventEmitter {
   ws;
   isReconnecting = false;
   maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
+  reconnectionAttempts = 0;
+  lastWsUrl = "";
   backOffOptions = {
     numOfAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
     startingDelay: DEFAULT_STARTING_DELAY,
@@ -2438,10 +2383,14 @@ var WebSocketClient = class extends import_events3.EventEmitter {
     }
   };
   /**
-   * Establishes a WebSocket connection.
+   * Establishes a WebSocket connection to the Asterisk server.
    *
-   * @returns {Promise<void>} Resolves when connection is established
-   * @throws {Error} If connection fails
+   * This method constructs the WebSocket URL using the base URL, credentials,
+   * application names, and subscribed events. It then initiates the connection
+   * using the constructed URL.
+   *
+   * @returns A Promise that resolves when the WebSocket connection is successfully established.
+   * @throws Will throw an error if the connection cannot be established.
    */
   async connect() {
     const { baseUrl, username, password } = this.baseClient.getCredentials();
@@ -2456,15 +2405,24 @@ var WebSocketClient = class extends import_events3.EventEmitter {
     } else {
       queryParams.append("subscribeAll", "true");
     }
-    const wsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
     console.log("Connecting to WebSocket...");
-    return this.initializeWebSocket(wsUrl);
+    return this.initializeWebSocket(this.lastWsUrl);
   }
   /**
-   * Initializes WebSocket connection with reconnection logic.
+   * Initializes a WebSocket connection with exponential backoff retry mechanism.
    *
-   * @param {string} wsUrl - The WebSocket URL to connect to
-   * @returns {Promise<void>} Resolves when connection is established
+   * This method attempts to establish a WebSocket connection to the specified URL.
+   * It sets up event listeners for the WebSocket's 'open', 'message', 'close', and 'error' events.
+   * If the connection is successful, it emits a 'connected' event. If it's a reconnection,
+   * it also emits a 'reconnected' event with the current apps and subscribed events.
+   * In case of connection failure, it uses an exponential backoff strategy to retry.
+   *
+   * @param wsUrl - The WebSocket URL to connect to.
+   * @returns A Promise that resolves when the connection is successfully established,
+   *          or rejects if an error occurs during the connection process.
+   * @throws Will throw an error if the WebSocket connection cannot be established
+   *         after the maximum number of retry attempts.
    */
   async initializeWebSocket(wsUrl) {
     return (0, import_exponential_backoff.backOff)(async () => {
@@ -2473,7 +2431,14 @@ var WebSocketClient = class extends import_events3.EventEmitter {
           this.ws = new import_ws.default(wsUrl);
           this.ws.on("open", () => {
             console.log("WebSocket connection established successfully");
+            if (this.isReconnecting) {
+              this.emit("reconnected", {
+                apps: this.apps,
+                subscribedEvents: this.subscribedEvents
+              });
+            }
             this.isReconnecting = false;
+            this.reconnectionAttempts = 0;
             this.emit("connected");
             resolve();
           });
@@ -2483,13 +2448,13 @@ var WebSocketClient = class extends import_events3.EventEmitter {
               `WebSocket disconnected with code ${code}. Attempting to reconnect...`
             );
             if (!this.isReconnecting) {
-              this.reconnect(wsUrl);
+              this.reconnect(this.lastWsUrl);
             }
           });
           this.ws.on("error", (err) => {
             console.error("WebSocket error:", err.message);
             if (!this.isReconnecting) {
-              this.reconnect(wsUrl);
+              this.reconnect(this.lastWsUrl);
             }
             reject(err);
           });
@@ -2500,9 +2465,16 @@ var WebSocketClient = class extends import_events3.EventEmitter {
     }, this.backOffOptions);
   }
   /**
-   * Processes incoming WebSocket messages.
+   * Handles incoming WebSocket messages by parsing and processing events.
    *
-   * @param {string} rawMessage - The raw message received from WebSocket
+   * This method parses the raw message into a WebSocketEvent, filters it based on
+   * subscribed events (if any), processes channel and playback events, and emits
+   * the event to listeners. It also handles any errors that occur during processing.
+   *
+   * @param rawMessage - The raw message string received from the WebSocket connection.
+   * @returns void This method doesn't return a value but emits events.
+   *
+   * @throws Will emit an 'error' event if the message cannot be parsed or processed.
    */
   handleMessage(rawMessage) {
     try {
@@ -2521,31 +2493,50 @@ var WebSocketClient = class extends import_events3.EventEmitter {
         event.instancePlayback = instancePlayback;
       }
       this.emit(event.type, event);
-      console.log(`Event processed: ${event.type}`);
     } catch (error) {
-      console.error("Error processing WebSocket message:", error instanceof Error ? error.message : "Unknown error");
+      console.error(
+        "Error processing WebSocket message:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
       this.emit("error", new Error("Failed to decode WebSocket message"));
     }
   }
   /**
-   * Attempts to reconnect to the WebSocket.
+   * Attempts to reconnect to the WebSocket server using an exponential backoff strategy.
    *
-   * @param {string} wsUrl - The WebSocket URL to reconnect to
+   * This method is called when the WebSocket connection is closed unexpectedly.
+   * It increments the reconnection attempt counter, logs the attempt, and uses
+   * the backOff utility to retry the connection with exponential delays between attempts.
+   *
+   * @param wsUrl - The WebSocket URL to reconnect to.
+   * @returns void - This method doesn't return a value.
+   *
+   * @emits reconnectFailed - Emitted if all reconnection attempts fail.
    */
   reconnect(wsUrl) {
     this.isReconnecting = true;
-    console.log("Initiating reconnection attempt...");
-    this.removeAllListeners();
-    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch((error) => {
-      console.error(
-        "Failed to reconnect after multiple attempts:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
-      this.emit("reconnectFailed", error);
-    });
+    this.reconnectionAttempts++;
+    console.log(
+      `Initiating reconnection attempt #${this.reconnectionAttempts}...`
+    );
+    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
+      (error) => {
+        console.error(
+          `Failed to reconnect after ${this.reconnectionAttempts} attempts:`,
+          error instanceof Error ? error.message : "Unknown error"
+        );
+        this.emit("reconnectFailed", error);
+      }
+    );
   }
   /**
-   * Manually closes the WebSocket connection.
+   * Closes the WebSocket connection if it exists.
+   *
+   * This method attempts to gracefully close the WebSocket connection
+   * and sets the WebSocket instance to undefined. If an error occurs
+   * during the closing process, it will be caught and logged.
+   *
+   * @throws {Error} Logs an error message if closing the WebSocket fails.
    */
   close() {
     try {
@@ -2562,17 +2553,30 @@ var WebSocketClient = class extends import_events3.EventEmitter {
     }
   }
   /**
-   * Checks if the WebSocket is currently connected.
+   * Checks if the WebSocket connection is currently open and active.
    *
-   * @returns {boolean} True if connected, false otherwise
+   * This method provides a way to determine the current state of the WebSocket connection.
+   * It checks if the WebSocket's readyState property is equal to WebSocket.OPEN,
+   * which indicates an active connection.
+   *
+   * @returns {boolean} True if the WebSocket connection is open and active, false otherwise.
    */
   isConnected() {
     return this.ws?.readyState === import_ws.default.OPEN;
   }
   /**
-   * Gets the current connection state.
+   * Retrieves the current state of the WebSocket connection.
    *
-   * @returns {number} The WebSocket ready state
+   * This method provides a way to check the current state of the WebSocket connection.
+   * It returns a number corresponding to one of the WebSocket readyState values:
+   * - 0 (CONNECTING): The connection is not yet open.
+   * - 1 (OPEN): The connection is open and ready to communicate.
+   * - 2 (CLOSING): The connection is in the process of closing.
+   * - 3 (CLOSED): The connection is closed or couldn't be opened.
+   *
+   * If the WebSocket instance doesn't exist, it returns WebSocket.CLOSED (3).
+   *
+   * @returns {number} A number representing the current state of the WebSocket connection.
    */
   getState() {
     return this.ws?.readyState ?? import_ws.default.CLOSED;

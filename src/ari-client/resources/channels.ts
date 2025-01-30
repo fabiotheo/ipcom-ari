@@ -49,7 +49,6 @@ export class ChannelInstance {
     channelId?: string,
   ) {
     this.id = channelId || `channel-${Date.now()}`;
-    console.log(`Channel instance initialized with ID: ${this.id}`);
   }
 
   /**
@@ -69,7 +68,6 @@ export class ChannelInstance {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    console.log(`Event listener registered for ${event} on channel ${this.id}`);
   }
 
   /**
@@ -89,9 +87,6 @@ export class ChannelInstance {
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    console.log(
-      `One-time event listener registered for ${event} on channel ${this.id}`,
-    );
   }
 
   /**
@@ -113,12 +108,8 @@ export class ChannelInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
-      console.log(
-        `Specific listener removed for ${event} on channel ${this.id}`,
-      );
     } else {
       this.eventEmitter.removeAllListeners(event);
-      console.log(`All listeners removed for ${event} on channel ${this.id}`);
     }
   }
 
@@ -133,7 +124,6 @@ export class ChannelInstance {
 
     if ("channel" in event && event.channel?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
-      console.log(`Event ${event.type} emitted for channel ${this.id}`);
     }
   }
 
@@ -144,7 +134,6 @@ export class ChannelInstance {
    * @return {void} This method does not return a value.
    */
   removeAllListeners(): void {
-    console.log(`Removendo todos os listeners para o canal ${this.id}`);
     this.eventEmitter.removeAllListeners();
   }
 
@@ -154,7 +143,6 @@ export class ChannelInstance {
   async answer(): Promise<void> {
     try {
       await this.baseClient.post<void>(`/channels/${this.id}/answer`);
-      console.log(`Channel ${this.id} answered`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error answering channel ${this.id}:`, message);
@@ -179,9 +167,6 @@ export class ChannelInstance {
         "/channels",
         data,
       );
-      console.log(
-        `Channel originated successfully with ID: ${this.channelData.id}`,
-      );
       return this.channelData;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -203,7 +188,6 @@ export class ChannelInstance {
 
     try {
       if (!this.channelData) {
-        console.log("Initializing channel details...");
         this.channelData = await this.getDetails();
       }
 
@@ -213,7 +197,6 @@ export class ChannelInstance {
         options,
       );
 
-      console.log(`Media playback started on channel ${this.id}`);
       return playback;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -239,7 +222,6 @@ export class ChannelInstance {
         `/channels/${this.id}`,
       );
       this.channelData = details;
-      console.log(`Retrieved channel details for ${this.id}`);
       return details;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -290,7 +272,6 @@ export class ChannelInstance {
    */
   async hangup(): Promise<void> {
     if (!this.channelData) {
-      console.log("Canal não inicializado, buscando detalhes...");
       this.channelData = await this.getDetails();
     }
 
@@ -517,18 +498,15 @@ export class Channels {
       if (!id) {
         const instance = new ChannelInstance(this.client, this.baseClient);
         this.channelInstances.set(instance.id, instance);
-        console.log(`New channel instance created with ID: ${instance.id}`);
         return instance;
       }
 
       if (!this.channelInstances.has(id)) {
         const instance = new ChannelInstance(this.client, this.baseClient, id);
         this.channelInstances.set(id, instance);
-        console.log(`New channel instance created with provided ID: ${id}`);
         return instance;
       }
 
-      console.log(`Returning existing channel instance: ${id}`);
       return this.channelInstances.get(id)!;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -550,9 +528,7 @@ export class Channels {
         throw new Error("No channel ID associated with this instance");
       }
 
-      const details = await this.baseClient.get<Channel>(`/channels/${id}`);
-      console.log(`Retrieved channel details for ${id}`);
-      return details;
+      return await this.baseClient.get<Channel>(`/channels/${id}`);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error retrieving channel details for ${id}:`, message);
@@ -572,7 +548,6 @@ export class Channels {
       const instance = this.channelInstances.get(channelId);
       instance?.removeAllListeners();
       this.channelInstances.delete(channelId);
-      console.log(`Channel instance removed: ${channelId}`);
     } else {
       console.warn(`Attempt to remove non-existent instance: ${channelId}`);
     }
@@ -591,9 +566,6 @@ export class Channels {
       const instance = this.channelInstances.get(event.channel.id);
       if (instance) {
         instance.emitEvent(event);
-        console.log(
-          `Event propagated to channel ${event.channel.id}: ${event.type}`,
-        );
       } else {
         console.warn(`No instance found for channel ${event.channel.id}`);
       }
@@ -609,9 +581,7 @@ export class Channels {
     }
 
     try {
-      const channel = await this.baseClient.post<Channel>("/channels", data);
-      console.log(`Channel originated successfully with ID: ${channel.id}`);
-      return channel;
+      return await this.baseClient.post<Channel>("/channels", data);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error originating channel:`, message);
@@ -628,7 +598,6 @@ export class Channels {
       if (!Array.isArray(channels)) {
         throw new Error("API response for /channels is not an array");
       }
-      console.log(`Retrieved ${channels.length} active channels`);
       return channels as Channel[];
     } catch (error: unknown) {
       const message = getErrorMessage(error);
