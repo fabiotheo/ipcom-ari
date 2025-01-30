@@ -192,6 +192,13 @@ export class WebSocketClient extends EventEmitter {
         event.instancePlayback = instancePlayback;
       }
 
+      // Process bridges-related events
+      if ("bridge" in event && event.bridge?.id && this.ariClient) {
+        const instanceBridge = this.ariClient.Bridge(event.bridge.id);
+        instanceBridge.emitEvent(event);
+        event.instanceBridge = instanceBridge;
+      }
+
       this.emit(event.type, event);
     } catch (error) {
       console.error(
