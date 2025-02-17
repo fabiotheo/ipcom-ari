@@ -41,6 +41,7 @@ const getErrorMessage = (error: unknown): string => {
 export class ChannelInstance {
   private readonly eventEmitter = new EventEmitter();
   private channelData: Channel | null = null;
+  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
   public readonly id: string;
 
   constructor(
@@ -62,12 +63,28 @@ export class ChannelInstance {
       throw new Error("Event type is required");
     }
 
+    // 🔹 Verifica se o listener já está registrado para evitar duplicação
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener já registrado para evento ${event}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("channel" in data && data.channel?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
+
     this.eventEmitter.on(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event)!.push(wrappedListener);
   }
 
   /**
@@ -81,12 +98,33 @@ export class ChannelInstance {
       throw new Error("Event type is required");
     }
 
+    const eventKey = `${event}-${this.id}`;
+
+    // 🔹 Verifica se já existe um listener igual para evitar duplicação
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("channel" in data && data.channel?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
+
+        // 🔹 Remove automaticamente o listener após a primeira execução
+        this.off(event, wrappedListener);
       }
     };
+
     this.eventEmitter.once(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey)!.push(wrappedListener);
   }
 
   /**
@@ -108,9 +146,31 @@ export class ChannelInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener),
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+
+  /**
+   * Cleans up the ChannelInstance, resetting its state and clearing resources.
+   */
+  public cleanup(): void {
+    // Limpar dados do canal
+    this.channelData = null;
+
+    // Remover todos os listeners
+    this.removeAllListeners();
+
+    // Limpar o map de listeners
+    this.listenersMap.clear();
+
+    console.log(`Channel instance ${this.id} cleaned up`);
   }
 
   /**
@@ -134,6 +194,18 @@ export class ChannelInstance {
    * @return {void} This method does not return a value.
    */
   removeAllListeners(): void {
+    console.log(`Removing all event listeners for channel ${this.id}`);
+
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event as string,
+          listener as (...args: any[]) => void,
+        );
+      });
+    });
+
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
 
@@ -470,6 +542,7 @@ export class ChannelInstance {
  */
 export class Channels {
   private readonly channelInstances = new Map<string, ChannelInstance>();
+  private eventQueue = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly baseClient: BaseClient,
@@ -515,6 +588,41 @@ export class Channels {
     }
   }
 
+  public cleanup(): void {
+    // Limpar event queue
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+
+    // Limpar todas as instâncias
+    this.remove();
+  }
+
+  /**
+   * Removes all channel instances and cleans up their resources.
+   * This method ensures proper cleanup of all channels and their associated listeners.
+   */
+  public remove(): void {
+    // Salvar os IDs antes de começar a limpeza
+    const channelIds = Array.from(this.channelInstances.keys());
+
+    for (const channelId of channelIds) {
+      try {
+        const instance = this.channelInstances.get(channelId);
+        if (instance) {
+          instance.cleanup(); // Usar o novo método cleanup
+          this.channelInstances.delete(channelId);
+          console.log(`Channel instance ${channelId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up channel ${channelId}:`, error);
+      }
+    }
+
+    // Garantir que o map está vazio
+    this.channelInstances.clear();
+    console.log("All channel instances have been removed and cleaned up");
+  }
+
   /**
    * Retrieves the details of a specific channel.
    *
@@ -539,15 +647,21 @@ export class Channels {
   /**
    * Removes a channel instance from the collection.
    */
-  removeChannelInstance(channelId: string): void {
+  public removeChannelInstance(channelId: string): void {
     if (!channelId) {
       throw new Error("Channel ID is required");
     }
 
-    if (this.channelInstances.has(channelId)) {
-      const instance = this.channelInstances.get(channelId);
-      instance?.removeAllListeners();
-      this.channelInstances.delete(channelId);
+    const instance = this.channelInstances.get(channelId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.channelInstances.delete(channelId);
+        console.log(`Channel instance ${channelId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing channel instance ${channelId}:`, error);
+        throw error;
+      }
     } else {
       console.warn(`Attempt to remove non-existent instance: ${channelId}`);
     }
@@ -556,20 +670,32 @@ export class Channels {
   /**
    * Propagates a WebSocket event to a specific channel.
    */
-  propagateEventToChannel(event: WebSocketEvent): void {
-    if (!event) {
+  public propagateEventToChannel(event: WebSocketEvent): void {
+    if (!event || !("channel" in event) || !event.channel?.id) {
       console.warn("Invalid WebSocket event received");
       return;
     }
 
-    if ("channel" in event && event.channel?.id) {
-      const instance = this.channelInstances.get(event.channel.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(`No instance found for channel ${event.channel.id}`);
-      }
+    const key = `${event.type}-${event.channel.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.channelInstances.get(event.channel!.id!);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for channel ${event.channel!.id}. Event ignored.`,
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100),
+    );
   }
 
   /**

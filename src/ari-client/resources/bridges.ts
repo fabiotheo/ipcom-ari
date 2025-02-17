@@ -49,6 +49,7 @@ const getErrorMessage = (error: unknown): string => {
  */
 export class BridgeInstance {
   private readonly eventEmitter = new EventEmitter();
+  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
   private bridgeData: Bridge | null = null;
   public readonly id: string;
 
@@ -98,12 +99,28 @@ export class BridgeInstance {
       throw new Error("Event type is required");
     }
 
+    // 🔹 Verifica se o listener já está registrado
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener já registrado para evento ${event}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("bridge" in data && data.bridge?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
+
     this.eventEmitter.on(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event)!.push(wrappedListener);
   }
 
   /**
@@ -120,12 +137,33 @@ export class BridgeInstance {
       throw new Error("Event type is required");
     }
 
+    const eventKey = `${event}-${this.id}`;
+
+    // 🔹 Verifica se já existe um listener igual para evitar duplicação
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("bridge" in data && data.bridge?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
+
+        // 🔹 Remove automaticamente o listener após a primeira execução
+        this.off(event, wrappedListener);
       }
     };
+
     this.eventEmitter.once(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey)!.push(wrappedListener);
   }
 
   /**
@@ -144,9 +182,31 @@ export class BridgeInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener),
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+
+  /**
+   * Cleans up the BridgeInstance, resetting its state and clearing resources.
+   */
+  public cleanup(): void {
+    // Limpar dados do bridge
+    this.bridgeData = null;
+
+    // Remover todos os listeners
+    this.removeAllListeners();
+
+    // Limpar o map de listeners
+    this.listenersMap.clear();
+
+    console.log(`Bridge instance ${this.id} cleaned up`);
   }
 
   /**
@@ -169,6 +229,17 @@ export class BridgeInstance {
    * Removes all event listeners from this bridge instance.
    */
   removeAllListeners(): void {
+    console.log(`Removing all event listeners for bridge ${this.id}`);
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event as string,
+          listener as (...args: any[]) => void,
+        );
+      });
+    });
+
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
 
@@ -351,6 +422,7 @@ export class BridgeInstance {
 }
 export class Bridges {
   private readonly bridgeInstances = new Map<string, BridgeInstance>();
+  private eventQueue = new Map<string, NodeJS.Timeout>();
   constructor(
     private readonly baseClient: BaseClient,
     private readonly client: AriClient,
@@ -375,7 +447,6 @@ export class Bridges {
       if (!id) {
         const instance = new BridgeInstance(this.client, this.baseClient);
         this.bridgeInstances.set(instance.id, instance);
-
         return instance;
       }
 
@@ -388,8 +459,35 @@ export class Bridges {
       return this.bridgeInstances.get(id)!;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
+      console.warn(`Error creating/retrieving bridge instance:`, message);
       throw new Error(`Failed to manage bridge instance: ${message}`);
     }
+  }
+
+  /**
+   * Removes all bridge instances and cleans up their resources.
+   * This method ensures proper cleanup of all bridges and their associated listeners.
+   */
+  public remove(): void {
+    // Salvar os IDs antes de começar a limpeza
+    const bridgeIds = Array.from(this.bridgeInstances.keys());
+
+    for (const bridgeId of bridgeIds) {
+      try {
+        const instance = this.bridgeInstances.get(bridgeId);
+        if (instance) {
+          instance.cleanup(); // Usar o novo método cleanup
+          this.bridgeInstances.delete(bridgeId);
+          console.log(`Bridge instance ${bridgeId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up bridge ${bridgeId}:`, error);
+      }
+    }
+
+    // Garantir que o map está vazio
+    this.bridgeInstances.clear();
+    console.log("All bridge instances have been removed and cleaned up");
   }
 
   /**
@@ -402,17 +500,23 @@ export class Bridges {
    * @throws {Error} Throws an error if the bridgeId is not provided.
    * @returns {void}
    */
-  removeBridgeInstance(bridgeId: string): void {
+  public removeBridgeInstance(bridgeId: string): void {
     if (!bridgeId) {
-      throw new Error("ID da bridge é obrigatório");
+      throw new Error("Bridge ID is required");
     }
 
-    if (this.bridgeInstances.has(bridgeId)) {
-      const instance = this.bridgeInstances.get(bridgeId);
-      instance?.removeAllListeners();
-      this.bridgeInstances.delete(bridgeId);
+    const instance = this.bridgeInstances.get(bridgeId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.bridgeInstances.delete(bridgeId);
+        console.log(`Bridge instance ${bridgeId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing bridge instance ${bridgeId}:`, error);
+        throw error;
+      }
     } else {
-      console.warn(`Tentativa de remover instância inexistente: ${bridgeId}`);
+      console.warn(`Attempt to remove non-existent instance: ${bridgeId}`);
     }
   }
 
@@ -430,30 +534,56 @@ export class Bridges {
    *
    * @remarks
    * - If the event is invalid (null or undefined), a warning is logged and the function returns early.
-   * - The function checks if the event is bridge-related and if the event type is included in the predefined bridge events.
+   * - The function checks if the event is bridge-related and if the event contains a valid bridge ID.
    * - If a matching bridge instance is found, the event is emitted to that instance.
    * - If no matching bridge instance is found, a warning is logged.
    */
-  propagateEventToBridge(event: WebSocketEvent): void {
-    if (!event) {
-      console.warn("Evento WebSocket inválido recebido");
+  public propagateEventToBridge(event: WebSocketEvent): void {
+    if (!event || !("bridge" in event) || !event.bridge?.id) {
+      console.warn("Invalid WebSocket event received");
       return;
     }
 
-    if (
-      "bridge" in event &&
-      event.bridge?.id &&
-      bridgeEvents.includes(event.type)
-    ) {
-      const instance = this.bridgeInstances.get(event.bridge.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(
-          `Nenhuma instância encontrada para bridge ${event.bridge.id}`,
-        );
-      }
+    const key = `${event.type}-${event.bridge.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.bridgeInstances.get(event.bridge!.id!);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for bridge ${event.bridge!.id}. Event ignored.`,
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100),
+    );
+  }
+  /**
+   * Performs a cleanup of the Bridges instance, clearing all event queues and removing all bridge instances.
+   *
+   * This method is responsible for:
+   * 1. Clearing all pending timeouts in the event queue.
+   * 2. Removing all bridge instances managed by this Bridges object.
+   *
+   * It should be called when the Bridges instance is no longer needed or before reinitializing
+   * to ensure all resources are properly released.
+   *
+   * @returns {void}
+   */
+  public cleanup(): void {
+    // Limpar event queue
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+
+    // Limpar todas as instâncias
+    this.remove();
   }
 
   /**

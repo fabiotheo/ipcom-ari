@@ -10,6 +10,7 @@ export declare class PlaybackInstance {
     private readonly baseClient;
     private readonly playbackId;
     private readonly eventEmitter;
+    private readonly listenersMap;
     private playbackData;
     readonly id: string;
     /**
@@ -48,6 +49,10 @@ export declare class PlaybackInstance {
         type: T;
     }>) => void): void;
     /**
+     * Cleans up the PlaybackInstance, resetting its state and clearing resources.
+     */
+    cleanup(): void;
+    /**
      * Emits a WebSocket event if it matches the current playback instance.
      *
      * @param {WebSocketEvent} event - Event to emit
@@ -74,7 +79,17 @@ export declare class PlaybackInstance {
      */
     stop(): Promise<void>;
     /**
-     * Removes all event listeners from this playback instance.
+     * Removes all event listeners associated with this playback instance.
+     * This method clears both the internal listener map and the event emitter.
+     *
+     * @remarks
+     * This method performs the following actions:
+     * 1. Logs a message indicating the removal of listeners.
+     * 2. Iterates through all stored listeners and removes them from the event emitter.
+     * 3. Clears the internal listener map.
+     * 4. Removes all listeners from the event emitter.
+     *
+     * @returns {void} This method doesn't return a value.
      */
     removeAllListeners(): void;
     /**
@@ -100,6 +115,7 @@ export declare class Playbacks {
     private baseClient;
     private client;
     private playbackInstances;
+    private eventQueue;
     constructor(baseClient: BaseClient, client: AriClient);
     /**
      * Gets or creates a playback instance
@@ -110,6 +126,23 @@ export declare class Playbacks {
     Playback(params?: {
         id?: string;
     }): PlaybackInstance;
+    /**
+     * Cleans up resources associated with the Playbacks instance.
+     * This method performs the following cleanup operations:
+     * 1. Clears all pending timeouts in the event queue.
+     * 2. Removes all playback instances.
+     *
+     * @remarks
+     * This method should be called when the Playbacks instance is no longer needed
+     * to ensure proper resource management and prevent memory leaks.
+     *
+     * @returns {void} This method doesn't return a value.
+     */
+    cleanup(): void;
+    /**
+     * Removes all playback instances and cleans up their resources.
+     */
+    remove(): void;
     /**
      * Removes a playback instance and cleans up its resources
      * @param {string} playbackId - ID of the playback instance to remove

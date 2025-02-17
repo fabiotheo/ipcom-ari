@@ -29,6 +29,7 @@ const getErrorMessage = (error: unknown): string => {
  */
 export class PlaybackInstance {
   private readonly eventEmitter = new EventEmitter();
+  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
   private playbackData: Playback | null = null;
   public readonly id: string;
 
@@ -61,12 +62,28 @@ export class PlaybackInstance {
       throw new Error("Event type is required");
     }
 
+    // 🔹 Verifica se o listener já está registrado para evitar duplicação
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener já registrado para evento ${event}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("playback" in data && data.playback?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
+
     this.eventEmitter.on(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event)!.push(wrappedListener);
   }
 
   /**
@@ -83,12 +100,33 @@ export class PlaybackInstance {
       throw new Error("Event type is required");
     }
 
+    const eventKey = `${event}-${this.id}`;
+
+    // 🔹 Verifica se já existe um listener igual para evitar duplicação
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+      );
+      return;
+    }
+
     const wrappedListener = (data: WebSocketEvent) => {
       if ("playback" in data && data.playback?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
+
+        // 🔹 Remove automaticamente o listener após a primeira execução
+        this.off(event, wrappedListener);
       }
     };
+
     this.eventEmitter.once(event, wrappedListener);
+
+    // 🔹 Armazena o listener para futura remoção
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey)!.push(wrappedListener);
   }
 
   /**
@@ -107,9 +145,31 @@ export class PlaybackInstance {
 
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener),
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+
+  /**
+   * Cleans up the PlaybackInstance, resetting its state and clearing resources.
+   */
+  public cleanup(): void {
+    // Limpar dados do playback
+    this.playbackData = null;
+
+    // Remover todos os listeners
+    this.removeAllListeners();
+
+    // Limpar o map de listeners
+    this.listenersMap.clear();
+
+    console.log(`Playback instance ${this.id} cleaned up`);
   }
 
   /**
@@ -195,9 +255,30 @@ export class PlaybackInstance {
   }
 
   /**
-   * Removes all event listeners from this playback instance.
+   * Removes all event listeners associated with this playback instance.
+   * This method clears both the internal listener map and the event emitter.
+   *
+   * @remarks
+   * This method performs the following actions:
+   * 1. Logs a message indicating the removal of listeners.
+   * 2. Iterates through all stored listeners and removes them from the event emitter.
+   * 3. Clears the internal listener map.
+   * 4. Removes all listeners from the event emitter.
+   *
+   * @returns {void} This method doesn't return a value.
    */
   removeAllListeners(): void {
+    console.log(`Removing all event listeners for playback ${this.id}`);
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event as string,
+          listener as (...args: any[]) => void,
+        );
+      });
+    });
+
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
 
@@ -228,6 +309,7 @@ export class PlaybackInstance {
  */
 export class Playbacks {
   private playbackInstances = new Map<string, PlaybackInstance>();
+  private eventQueue = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private baseClient: BaseClient,
@@ -265,19 +347,71 @@ export class Playbacks {
   }
 
   /**
+   * Cleans up resources associated with the Playbacks instance.
+   * This method performs the following cleanup operations:
+   * 1. Clears all pending timeouts in the event queue.
+   * 2. Removes all playback instances.
+   * 
+   * @remarks
+   * This method should be called when the Playbacks instance is no longer needed
+   * to ensure proper resource management and prevent memory leaks.
+   * 
+   * @returns {void} This method doesn't return a value.
+   */
+  public cleanup(): void {
+    // Limpar event queue
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+  
+    // Limpar todas as instâncias
+    this.remove();
+  }
+
+  /**
+   * Removes all playback instances and cleans up their resources.
+   */
+  public remove(): void {
+    // Salvar os IDs antes de começar a limpeza
+    const playbackIds = Array.from(this.playbackInstances.keys());
+
+    for (const playbackId of playbackIds) {
+      try {
+        const instance = this.playbackInstances.get(playbackId);
+        if (instance) {
+          instance.cleanup(); // Usar o novo método cleanup
+          this.playbackInstances.delete(playbackId);
+          console.log(`Playback instance ${playbackId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up playback ${playbackId}:`, error);
+      }
+    }
+
+    // Garantir que o map está vazio
+    this.playbackInstances.clear();
+    console.log("All playback instances have been removed and cleaned up");
+  }
+
+  /**
    * Removes a playback instance and cleans up its resources
    * @param {string} playbackId - ID of the playback instance to remove
    * @throws {Error} If the playback instance doesn't exist
    */
-  removePlaybackInstance(playbackId: string): void {
+  public removePlaybackInstance(playbackId: string): void {
     if (!playbackId) {
       throw new Error("Playback ID is required");
     }
 
-    if (this.playbackInstances.has(playbackId)) {
-      const instance = this.playbackInstances.get(playbackId);
-      instance?.removeAllListeners();
-      this.playbackInstances.delete(playbackId);
+    const instance = this.playbackInstances.get(playbackId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.playbackInstances.delete(playbackId);
+        console.log(`Playback instance ${playbackId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing playback instance ${playbackId}:`, error);
+        throw error;
+      }
     } else {
       console.warn(`Attempt to remove non-existent instance: ${playbackId}`);
     }
@@ -287,19 +421,32 @@ export class Playbacks {
    * Propagates WebSocket events to the corresponding playback instance
    * @param {WebSocketEvent} event - The WebSocket event to propagate
    */
-  propagateEventToPlayback(event: WebSocketEvent): void {
-    if (!event) {
+  public propagateEventToPlayback(event: WebSocketEvent): void {
+    if (!event || !("playback" in event) || !event.playback?.id) {
+      console.warn("Invalid WebSocket event received");
       return;
     }
 
-    if ("playback" in event && event.playback?.id) {
-      const instance = this.playbackInstances.get(event.playback.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(`No instance found for playback ${event.playback.id}`);
-      }
+    const key = `${event.type}-${event.playback.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.playbackInstances.get(event.playback!.id!);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for playback ${event.playback!.id}. Event ignored.`,
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100),
+    );
   }
 
   /**

@@ -3,6 +3,7 @@ export declare abstract class BaseResource {
     protected readonly client: AriClient;
     private readonly emitter;
     private readonly resourceId;
+    private readonly listenersMap;
     protected constructor(client: AriClient, resourceId: string);
     /**
      * Registra um listener para eventos do recurso.
@@ -11,7 +12,7 @@ export declare abstract class BaseResource {
      */
     on<T extends string>(event: T, callback: (data: any) => void): void;
     /**
-     * Remove um listener para eventos do recurso.
+     * Remove um listener específico do evento.
      * @param event O tipo de evento.
      * @param callback Função callback a ser removida.
      */
@@ -21,6 +22,10 @@ export declare abstract class BaseResource {
      * @param event O tipo de evento.
      */
     removeAllListeners<T extends string>(event: T): void;
+    /**
+     * Remove todos os listeners de todos os eventos associados a este recurso.
+     */
+    clearAllListeners(): void;
     /**
      * Emite um evento específico para este recurso.
      * @param event O tipo de evento.

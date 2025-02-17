@@ -30,6 +30,7 @@ import { WebSocketClient } from "./websocketClient.js";
 export class AriClient {
   private readonly baseClient: BaseClient;
   private webSocketClient?: WebSocketClient;
+  private eventListeners = new Map<string, Function[]>(); // Armazena os listeners para limpeza
 
   public readonly channels: Channels;
   public readonly endpoints: Endpoints;
@@ -70,6 +71,58 @@ export class AriClient {
     console.log(`ARI Client initialized with base URL: ${baseUrl}`);
   }
 
+  public async cleanup(): Promise<void> {
+    try {
+      console.log("Starting ARI Client cleanup...");
+
+      // Primeiro limpa o WebSocket para evitar novos eventos
+      if (this.webSocketClient) {
+        await this.closeWebSocket();
+      }
+
+      // Limpar todos os resources em paralelo
+      await Promise.all([
+        // Cleanup de channels
+        (async () => {
+          try {
+            this.channels.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up channels:", error);
+          }
+        })(),
+        // Cleanup de playbacks
+        (async () => {
+          try {
+            this.playbacks.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up playbacks:", error);
+          }
+        })(),
+        // Cleanup de bridges
+        (async () => {
+          try {
+            this.bridges.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up bridges:", error);
+          }
+        })(),
+      ]);
+
+      // Limpar listeners do cliente ARI
+      this.eventListeners.forEach((listeners, event) => {
+        listeners.forEach((listener) => {
+          this.off(event as WebSocketEvent["type"], listener as any);
+        });
+      });
+      this.eventListeners.clear();
+
+      console.log("ARI Client cleanup completed successfully");
+    } catch (error) {
+      console.error("Error during ARI Client cleanup:", error);
+      throw error;
+    }
+  }
+
   /**
    * Initializes a WebSocket connection for receiving events.
    *
@@ -82,27 +135,63 @@ export class AriClient {
     apps: string[],
     subscribedEvents?: WebSocketEventType[],
   ): Promise<void> {
-    if (!apps.length) {
-      throw new Error("At least one application name is required");
-    }
-
-    if (this.webSocketClient) {
-      console.warn("WebSocket is already connected");
-      return;
-    }
-
     try {
+      if (!apps.length) {
+        throw new Error("At least one application name is required.");
+      }
+
+      // Fechar conexão existente se houver
+      if (this.webSocketClient) {
+        await this.closeWebSocket();
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Pequeno delay para garantir limpeza
+      }
+
+      // Criar nova conexão
       this.webSocketClient = new WebSocketClient(
         this.baseClient,
         apps,
         subscribedEvents,
         this,
       );
+
       await this.webSocketClient.connect();
-      console.log("WebSocket connection established successfully");
+      console.log("WebSocket connection established successfully.");
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
       this.webSocketClient = undefined;
+      throw error;
+    }
+  }
+
+  /**
+   * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
+   * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the destruction process is complete.
+   * @throws {Error} If an error occurs during the destruction process.
+   */
+  public async destroy(): Promise<void> {
+    try {
+      console.log('Destroying ARI Client...');
+  
+      // Cleanup de todos os recursos
+      await this.cleanup();
+  
+      // Limpar referências
+      this.webSocketClient = undefined;
+  
+      // Remover todas as referências circulares
+      (this.channels as any) = null;
+      (this.playbacks as any) = null;
+      (this.bridges as any) = null;
+      (this.endpoints as any) = null;
+      (this.applications as any) = null;
+      (this.sounds as any) = null;
+      (this.asterisk as any) = null;
+  
+      console.log('ARI Client destroyed successfully');
+    } catch (error) {
+      console.error('Error destroying ARI Client:', error);
       throw error;
     }
   }
@@ -121,8 +210,19 @@ export class AriClient {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
     }
+
+    // 🔹 Verifica se o listener já está registrado para evitar duplicação
+    const existingListeners = this.eventListeners.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(`Listener already registered for event ${event}, reusing.`);
+      return;
+    }
+
     this.webSocketClient.on(event, listener);
-    console.log(`Event listener registered for ${event}`);
+    existingListeners.push(listener);
+    this.eventListeners.set(event, existingListeners);
+
+    console.log(`Event listener successfully registered for ${event}`);
   }
 
   /**
@@ -139,7 +239,24 @@ export class AriClient {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
     }
-    this.webSocketClient.once(event, listener);
+
+    // 🔹 Check if an identical listener already exists to avoid duplication
+    const existingListeners = this.eventListeners.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener already registered for event ${event}, reusing.`,
+      );
+      return;
+    }
+
+    const wrappedListener = (data: Extract<WebSocketEvent, { type: T }>) => {
+      listener(data);
+      this.off(event, wrappedListener);
+    };
+
+    this.webSocketClient.once(event, wrappedListener);
+    this.eventListeners.set(event, [...existingListeners, wrappedListener]);
+
     console.log(`One-time event listener registered for ${event}`);
   }
 
@@ -157,21 +274,69 @@ export class AriClient {
       console.warn("No WebSocket connection to remove listener from");
       return;
     }
+
     this.webSocketClient.off(event, listener);
+    const existingListeners = this.eventListeners.get(event) || [];
+    this.eventListeners.set(
+      event,
+      existingListeners.filter((l) => l !== listener),
+    );
+
     console.log(`Event listener removed for ${event}`);
   }
 
   /**
    * Closes the WebSocket connection if one exists.
    */
-  public closeWebSocket(): void {
-    if (!this.webSocketClient) {
-      console.warn("No WebSocket connection to close");
-      return;
-    }
-    this.webSocketClient.close();
-    this.webSocketClient = undefined;
-    console.log("WebSocket connection closed");
+  public closeWebSocket(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.webSocketClient) {
+        console.warn("No WebSocket connection to close");
+        resolve();
+        return;
+      }
+
+      console.log("Closing WebSocket connection and cleaning up listeners.");
+
+      const closeTimeout = setTimeout(() => {
+        if (this.webSocketClient) {
+          this.webSocketClient.removeAllListeners();
+          this.webSocketClient = undefined;
+        }
+        resolve();
+      }, 5000);
+
+      this.eventListeners.forEach((listeners, event) => {
+        listeners.forEach((listener) => {
+          this.webSocketClient?.off(
+            event as WebSocketEvent["type"],
+            listener as (...args: any[]) => void,
+          );
+        });
+      });
+      this.eventListeners.clear();
+
+      this.webSocketClient.once("close", () => {
+        clearTimeout(closeTimeout);
+        this.webSocketClient = undefined;
+        console.log("WebSocket connection closed");
+        resolve();
+      });
+
+      this.webSocketClient
+        .close()
+        .then(() => {
+          clearTimeout(closeTimeout);
+          this.webSocketClient = undefined;
+          resolve();
+        })
+        .catch((error) => {
+          console.error("Error during WebSocket close:", error);
+          clearTimeout(closeTimeout);
+          this.webSocketClient = undefined;
+          resolve();
+        });
+    });
   }
 
   /**
@@ -216,6 +381,6 @@ export class AriClient {
    * @returns {boolean} True if WebSocket is connected, false otherwise
    */
   public isWebSocketConnected(): boolean {
-    return !!this.webSocketClient;
+    return !!this.webSocketClient && this.webSocketClient.isConnected();
   }
 }

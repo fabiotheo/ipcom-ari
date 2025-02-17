@@ -9,6 +9,7 @@ export declare class BridgeInstance {
     private readonly client;
     private readonly baseClient;
     private readonly eventEmitter;
+    private readonly listenersMap;
     private bridgeData;
     readonly id: string;
     /**
@@ -63,6 +64,10 @@ export declare class BridgeInstance {
     off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
+    /**
+     * Cleans up the BridgeInstance, resetting its state and clearing resources.
+     */
+    cleanup(): void;
     /**
      * Emits an event if it corresponds to the current bridge.
      *
@@ -140,6 +145,7 @@ export declare class Bridges {
     private readonly baseClient;
     private readonly client;
     private readonly bridgeInstances;
+    private eventQueue;
     constructor(baseClient: BaseClient, client: AriClient);
     /**
      * Creates or retrieves a Bridge instance.
@@ -159,6 +165,11 @@ export declare class Bridges {
     Bridge({ id }: {
         id?: string;
     }): BridgeInstance;
+    /**
+     * Removes all bridge instances and cleans up their resources.
+     * This method ensures proper cleanup of all bridges and their associated listeners.
+     */
+    remove(): void;
     /**
      * Removes a bridge instance from the collection of managed bridges.
      *
@@ -184,11 +195,24 @@ export declare class Bridges {
      *
      * @remarks
      * - If the event is invalid (null or undefined), a warning is logged and the function returns early.
-     * - The function checks if the event is bridge-related and if the event type is included in the predefined bridge events.
+     * - The function checks if the event is bridge-related and if the event contains a valid bridge ID.
      * - If a matching bridge instance is found, the event is emitted to that instance.
      * - If no matching bridge instance is found, a warning is logged.
      */
     propagateEventToBridge(event: WebSocketEvent): void;
+    /**
+     * Performs a cleanup of the Bridges instance, clearing all event queues and removing all bridge instances.
+     *
+     * This method is responsible for:
+     * 1. Clearing all pending timeouts in the event queue.
+     * 2. Removing all bridge instances managed by this Bridges object.
+     *
+     * It should be called when the Bridges instance is no longer needed or before reinitializing
+     * to ensure all resources are properly released.
+     *
+     * @returns {void}
+     */
+    cleanup(): void;
     /**
      * Lists all active bridges in the system.
      *

@@ -915,16 +915,6 @@ var Asterisk = class {
 import { EventEmitter } from "events";
 import { isAxiosError as isAxiosError2 } from "axios";
 
-// src/ari-client/interfaces/events.types.ts
-var bridgeEvents = [
-  "BridgeCreated",
-  "BridgeDestroyed",
-  "BridgeMerged",
-  "BridgeBlindTransfer",
-  "BridgeAttendedTransfer",
-  "BridgeVideoSourceChanged"
-];
-
 // src/ari-client/utils.ts
 function toQueryParams2(options) {
   return new URLSearchParams(
@@ -956,6 +946,8 @@ var BridgeInstance = class {
     this.id = bridgeId || `bridge-${Date.now()}`;
   }
   eventEmitter = new EventEmitter();
+  listenersMap = /* @__PURE__ */ new Map();
+  // 🔹 Guarda listeners para remoção posterior
   bridgeData = null;
   id;
   /**
@@ -985,12 +977,23 @@ var BridgeInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener j\xE1 registrado para evento ${event}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("bridge" in data && data.bridge?.id === this.id) {
         listener(data);
       }
     };
     this.eventEmitter.on(event, wrappedListener);
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event).push(wrappedListener);
   }
   /**
    * Registers a one-time listener for specific bridge events.
@@ -1002,12 +1005,25 @@ var BridgeInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const eventKey = `${event}-${this.id}`;
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("bridge" in data && data.bridge?.id === this.id) {
         listener(data);
+        this.off(event, wrappedListener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey).push(wrappedListener);
   }
   /**
    * Removes event listener(s) from the bridge.
@@ -1021,9 +1037,24 @@ var BridgeInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener)
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+  /**
+   * Cleans up the BridgeInstance, resetting its state and clearing resources.
+   */
+  cleanup() {
+    this.bridgeData = null;
+    this.removeAllListeners();
+    this.listenersMap.clear();
+    console.log(`Bridge instance ${this.id} cleaned up`);
   }
   /**
    * Emits an event if it corresponds to the current bridge.
@@ -1043,6 +1074,16 @@ var BridgeInstance = class {
    * Removes all event listeners from this bridge instance.
    */
   removeAllListeners() {
+    console.log(`Removing all event listeners for bridge ${this.id}`);
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event,
+          listener
+        );
+      });
+    });
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
   /**
@@ -1211,6 +1252,7 @@ var Bridges = class {
     this.client = client;
   }
   bridgeInstances = /* @__PURE__ */ new Map();
+  eventQueue = /* @__PURE__ */ new Map();
   /**
    * Creates or retrieves a Bridge instance.
    *
@@ -1241,8 +1283,30 @@ var Bridges = class {
       return this.bridgeInstances.get(id);
     } catch (error) {
       const message = getErrorMessage(error);
+      console.warn(`Error creating/retrieving bridge instance:`, message);
       throw new Error(`Failed to manage bridge instance: ${message}`);
     }
+  }
+  /**
+   * Removes all bridge instances and cleans up their resources.
+   * This method ensures proper cleanup of all bridges and their associated listeners.
+   */
+  remove() {
+    const bridgeIds = Array.from(this.bridgeInstances.keys());
+    for (const bridgeId of bridgeIds) {
+      try {
+        const instance = this.bridgeInstances.get(bridgeId);
+        if (instance) {
+          instance.cleanup();
+          this.bridgeInstances.delete(bridgeId);
+          console.log(`Bridge instance ${bridgeId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up bridge ${bridgeId}:`, error);
+      }
+    }
+    this.bridgeInstances.clear();
+    console.log("All bridge instances have been removed and cleaned up");
   }
   /**
    * Removes a bridge instance from the collection of managed bridges.
@@ -1256,14 +1320,20 @@ var Bridges = class {
    */
   removeBridgeInstance(bridgeId) {
     if (!bridgeId) {
-      throw new Error("ID da bridge \xE9 obrigat\xF3rio");
+      throw new Error("Bridge ID is required");
     }
-    if (this.bridgeInstances.has(bridgeId)) {
-      const instance = this.bridgeInstances.get(bridgeId);
-      instance?.removeAllListeners();
-      this.bridgeInstances.delete(bridgeId);
+    const instance = this.bridgeInstances.get(bridgeId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.bridgeInstances.delete(bridgeId);
+        console.log(`Bridge instance ${bridgeId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing bridge instance ${bridgeId}:`, error);
+        throw error;
+      }
     } else {
-      console.warn(`Tentativa de remover inst\xE2ncia inexistente: ${bridgeId}`);
+      console.warn(`Attempt to remove non-existent instance: ${bridgeId}`);
     }
   }
   /**
@@ -1280,25 +1350,51 @@ var Bridges = class {
    *
    * @remarks
    * - If the event is invalid (null or undefined), a warning is logged and the function returns early.
-   * - The function checks if the event is bridge-related and if the event type is included in the predefined bridge events.
+   * - The function checks if the event is bridge-related and if the event contains a valid bridge ID.
    * - If a matching bridge instance is found, the event is emitted to that instance.
    * - If no matching bridge instance is found, a warning is logged.
    */
   propagateEventToBridge(event) {
-    if (!event) {
-      console.warn("Evento WebSocket inv\xE1lido recebido");
+    if (!event || !("bridge" in event) || !event.bridge?.id) {
+      console.warn("Invalid WebSocket event received");
       return;
     }
-    if ("bridge" in event && event.bridge?.id && bridgeEvents.includes(event.type)) {
-      const instance = this.bridgeInstances.get(event.bridge.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(
-          `Nenhuma inst\xE2ncia encontrada para bridge ${event.bridge.id}`
-        );
-      }
+    const key = `${event.type}-${event.bridge.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.bridgeInstances.get(event.bridge.id);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for bridge ${event.bridge.id}. Event ignored.`
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100)
+    );
+  }
+  /**
+   * Performs a cleanup of the Bridges instance, clearing all event queues and removing all bridge instances.
+   *
+   * This method is responsible for:
+   * 1. Clearing all pending timeouts in the event queue.
+   * 2. Removing all bridge instances managed by this Bridges object.
+   *
+   * It should be called when the Bridges instance is no longer needed or before reinitializing
+   * to ensure all resources are properly released.
+   *
+   * @returns {void}
+   */
+  cleanup() {
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+    this.remove();
   }
   /**
    * Lists all active bridges in the system.
@@ -1625,6 +1721,8 @@ var ChannelInstance = class {
   }
   eventEmitter = new EventEmitter2();
   channelData = null;
+  listenersMap = /* @__PURE__ */ new Map();
+  // 🔹 Guarda listeners para remoção posterior
   id;
   /**
    * Registers an event listener for specific channel events
@@ -1633,12 +1731,23 @@ var ChannelInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener j\xE1 registrado para evento ${event}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("channel" in data && data.channel?.id === this.id) {
         listener(data);
       }
     };
     this.eventEmitter.on(event, wrappedListener);
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event).push(wrappedListener);
   }
   /**
    * Registers a one-time event listener
@@ -1647,12 +1756,25 @@ var ChannelInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const eventKey = `${event}-${this.id}`;
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("channel" in data && data.channel?.id === this.id) {
         listener(data);
+        this.off(event, wrappedListener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey).push(wrappedListener);
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -1669,9 +1791,24 @@ var ChannelInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener)
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+  /**
+   * Cleans up the ChannelInstance, resetting its state and clearing resources.
+   */
+  cleanup() {
+    this.channelData = null;
+    this.removeAllListeners();
+    this.listenersMap.clear();
+    console.log(`Channel instance ${this.id} cleaned up`);
   }
   /**
    * Emits an event if it matches the current channel
@@ -1692,6 +1829,16 @@ var ChannelInstance = class {
    * @return {void} This method does not return a value.
    */
   removeAllListeners() {
+    console.log(`Removing all event listeners for channel ${this.id}`);
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event,
+          listener
+        );
+      });
+    });
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
   /**
@@ -1980,6 +2127,7 @@ var Channels = class {
     this.client = client;
   }
   channelInstances = /* @__PURE__ */ new Map();
+  eventQueue = /* @__PURE__ */ new Map();
   /**
    * Creates or retrieves a ChannelInstance.
    *
@@ -2015,6 +2163,32 @@ var Channels = class {
       throw new Error(`Failed to manage channel instance: ${message}`);
     }
   }
+  cleanup() {
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+    this.remove();
+  }
+  /**
+   * Removes all channel instances and cleans up their resources.
+   * This method ensures proper cleanup of all channels and their associated listeners.
+   */
+  remove() {
+    const channelIds = Array.from(this.channelInstances.keys());
+    for (const channelId of channelIds) {
+      try {
+        const instance = this.channelInstances.get(channelId);
+        if (instance) {
+          instance.cleanup();
+          this.channelInstances.delete(channelId);
+          console.log(`Channel instance ${channelId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up channel ${channelId}:`, error);
+      }
+    }
+    this.channelInstances.clear();
+    console.log("All channel instances have been removed and cleaned up");
+  }
   /**
    * Retrieves the details of a specific channel.
    *
@@ -2041,10 +2215,16 @@ var Channels = class {
     if (!channelId) {
       throw new Error("Channel ID is required");
     }
-    if (this.channelInstances.has(channelId)) {
-      const instance = this.channelInstances.get(channelId);
-      instance?.removeAllListeners();
-      this.channelInstances.delete(channelId);
+    const instance = this.channelInstances.get(channelId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.channelInstances.delete(channelId);
+        console.log(`Channel instance ${channelId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing channel instance ${channelId}:`, error);
+        throw error;
+      }
     } else {
       console.warn(`Attempt to remove non-existent instance: ${channelId}`);
     }
@@ -2053,18 +2233,29 @@ var Channels = class {
    * Propagates a WebSocket event to a specific channel.
    */
   propagateEventToChannel(event) {
-    if (!event) {
+    if (!event || !("channel" in event) || !event.channel?.id) {
       console.warn("Invalid WebSocket event received");
       return;
     }
-    if ("channel" in event && event.channel?.id) {
-      const instance = this.channelInstances.get(event.channel.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(`No instance found for channel ${event.channel.id}`);
-      }
+    const key = `${event.type}-${event.channel.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.channelInstances.get(event.channel.id);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for channel ${event.channel.id}. Event ignored.`
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100)
+    );
   }
   /**
    * Initiates a new channel.
@@ -2545,6 +2736,8 @@ var PlaybackInstance = class {
     this.id = playbackId;
   }
   eventEmitter = new EventEmitter3();
+  listenersMap = /* @__PURE__ */ new Map();
+  // 🔹 Guarda listeners para remoção posterior
   playbackData = null;
   id;
   /**
@@ -2557,12 +2750,23 @@ var PlaybackInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const existingListeners = this.listenersMap.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `Listener j\xE1 registrado para evento ${event}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("playback" in data && data.playback?.id === this.id) {
         listener(data);
       }
     };
     this.eventEmitter.on(event, wrappedListener);
+    if (!this.listenersMap.has(event)) {
+      this.listenersMap.set(event, []);
+    }
+    this.listenersMap.get(event).push(wrappedListener);
   }
   /**
    * Registers a one-time event listener for a specific WebSocket event type.
@@ -2574,12 +2778,25 @@ var PlaybackInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
+    const eventKey = `${event}-${this.id}`;
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+      );
+      return;
+    }
     const wrappedListener = (data) => {
       if ("playback" in data && data.playback?.id === this.id) {
         listener(data);
+        this.off(event, wrappedListener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey).push(wrappedListener);
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -2593,9 +2810,24 @@ var PlaybackInstance = class {
     }
     if (listener) {
       this.eventEmitter.off(event, listener);
+      const storedListeners = this.listenersMap.get(event) || [];
+      this.listenersMap.set(
+        event,
+        storedListeners.filter((l) => l !== listener)
+      );
     } else {
       this.eventEmitter.removeAllListeners(event);
+      this.listenersMap.delete(event);
     }
+  }
+  /**
+   * Cleans up the PlaybackInstance, resetting its state and clearing resources.
+   */
+  cleanup() {
+    this.playbackData = null;
+    this.removeAllListeners();
+    this.listenersMap.clear();
+    console.log(`Playback instance ${this.id} cleaned up`);
   }
   /**
    * Emits a WebSocket event if it matches the current playback instance.
@@ -2670,9 +2902,29 @@ var PlaybackInstance = class {
     }
   }
   /**
-   * Removes all event listeners from this playback instance.
+   * Removes all event listeners associated with this playback instance.
+   * This method clears both the internal listener map and the event emitter.
+   *
+   * @remarks
+   * This method performs the following actions:
+   * 1. Logs a message indicating the removal of listeners.
+   * 2. Iterates through all stored listeners and removes them from the event emitter.
+   * 3. Clears the internal listener map.
+   * 4. Removes all listeners from the event emitter.
+   *
+   * @returns {void} This method doesn't return a value.
    */
   removeAllListeners() {
+    console.log(`Removing all event listeners for playback ${this.id}`);
+    this.listenersMap.forEach((listeners, event) => {
+      listeners.forEach((listener) => {
+        this.eventEmitter.off(
+          event,
+          listener
+        );
+      });
+    });
+    this.listenersMap.clear();
     this.eventEmitter.removeAllListeners();
   }
   /**
@@ -2699,6 +2951,7 @@ var Playbacks = class {
     this.client = client;
   }
   playbackInstances = /* @__PURE__ */ new Map();
+  eventQueue = /* @__PURE__ */ new Map();
   /**
    * Gets or creates a playback instance
    * @param {Object} [params] - Optional parameters for getting/creating a playback instance
@@ -2726,6 +2979,43 @@ var Playbacks = class {
     }
   }
   /**
+   * Cleans up resources associated with the Playbacks instance.
+   * This method performs the following cleanup operations:
+   * 1. Clears all pending timeouts in the event queue.
+   * 2. Removes all playback instances.
+   * 
+   * @remarks
+   * This method should be called when the Playbacks instance is no longer needed
+   * to ensure proper resource management and prevent memory leaks.
+   * 
+   * @returns {void} This method doesn't return a value.
+   */
+  cleanup() {
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+    this.remove();
+  }
+  /**
+   * Removes all playback instances and cleans up their resources.
+   */
+  remove() {
+    const playbackIds = Array.from(this.playbackInstances.keys());
+    for (const playbackId of playbackIds) {
+      try {
+        const instance = this.playbackInstances.get(playbackId);
+        if (instance) {
+          instance.cleanup();
+          this.playbackInstances.delete(playbackId);
+          console.log(`Playback instance ${playbackId} removed and cleaned up`);
+        }
+      } catch (error) {
+        console.error(`Error cleaning up playback ${playbackId}:`, error);
+      }
+    }
+    this.playbackInstances.clear();
+    console.log("All playback instances have been removed and cleaned up");
+  }
+  /**
    * Removes a playback instance and cleans up its resources
    * @param {string} playbackId - ID of the playback instance to remove
    * @throws {Error} If the playback instance doesn't exist
@@ -2734,10 +3024,16 @@ var Playbacks = class {
     if (!playbackId) {
       throw new Error("Playback ID is required");
     }
-    if (this.playbackInstances.has(playbackId)) {
-      const instance = this.playbackInstances.get(playbackId);
-      instance?.removeAllListeners();
-      this.playbackInstances.delete(playbackId);
+    const instance = this.playbackInstances.get(playbackId);
+    if (instance) {
+      try {
+        instance.cleanup();
+        this.playbackInstances.delete(playbackId);
+        console.log(`Playback instance ${playbackId} removed from memory`);
+      } catch (error) {
+        console.error(`Error removing playback instance ${playbackId}:`, error);
+        throw error;
+      }
     } else {
       console.warn(`Attempt to remove non-existent instance: ${playbackId}`);
     }
@@ -2747,17 +3043,29 @@ var Playbacks = class {
    * @param {WebSocketEvent} event - The WebSocket event to propagate
    */
   propagateEventToPlayback(event) {
-    if (!event) {
+    if (!event || !("playback" in event) || !event.playback?.id) {
+      console.warn("Invalid WebSocket event received");
       return;
     }
-    if ("playback" in event && event.playback?.id) {
-      const instance = this.playbackInstances.get(event.playback.id);
-      if (instance) {
-        instance.emitEvent(event);
-      } else {
-        console.warn(`No instance found for playback ${event.playback.id}`);
-      }
+    const key = `${event.type}-${event.playback.id}`;
+    const existing = this.eventQueue.get(key);
+    if (existing) {
+      clearTimeout(existing);
     }
+    this.eventQueue.set(
+      key,
+      setTimeout(() => {
+        const instance = this.playbackInstances.get(event.playback.id);
+        if (instance) {
+          instance.emitEvent(event);
+        } else {
+          console.warn(
+            `No instance found for playback ${event.playback.id}. Event ignored.`
+          );
+        }
+        this.eventQueue.delete(key);
+      }, 100)
+    );
   }
   /**
    * Retrieves details of a specific playback
@@ -2895,9 +3203,57 @@ var WebSocketClient = class extends EventEmitter4 {
   }
   ws;
   isReconnecting = false;
+  isConnecting = false;
+  // 🔹 Evita múltiplas conexões simultâneas
+  shouldReconnect = true;
+  // 🔹 Nova flag para impedir reconexão se for um fechamento intencional
   maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
   reconnectionAttempts = 0;
   lastWsUrl = "";
+  eventQueue = /* @__PURE__ */ new Map();
+  /**
+   * Logs the current connection status of the WebSocket client at regular intervals.
+   *
+   * This method sets up an interval that logs various connection-related metrics every 60 seconds.
+   * The logged information includes:
+   * - The number of active connections (0 or 1)
+   * - The current state of the WebSocket connection
+   * - The number of reconnection attempts made
+   * - The size of the event queue
+   *
+   * This can be useful for monitoring the health and status of the WebSocket connection over time.
+   *
+   * @private
+   * @returns {void}
+   */
+  logConnectionStatus() {
+    setInterval(() => {
+      console.log({
+        connections: this.ws ? 1 : 0,
+        state: this.getState(),
+        reconnectAttempts: this.reconnectionAttempts,
+        eventQueueSize: this.eventQueue.size
+      });
+    }, 6e4);
+  }
+  /**
+   * Sets up a heartbeat mechanism for the WebSocket connection.
+   *
+   * This method creates an interval that sends a ping message every 30 seconds
+   * to keep the connection alive. The heartbeat is automatically cleared when
+   * the WebSocket connection is closed.
+   *
+   * @private
+   * @returns {void}
+   */
+  setupHeartbeat() {
+    const interval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.ping();
+      }
+    }, 3e4);
+    this.ws.once("close", () => clearInterval(interval));
+  }
   backOffOptions = {
     numOfAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,
     startingDelay: DEFAULT_STARTING_DELAY,
@@ -2924,21 +3280,29 @@ var WebSocketClient = class extends EventEmitter4 {
    * @throws Will throw an error if the connection cannot be established.
    */
   async connect() {
+    if (this.isConnecting || this.isConnected()) {
+      console.warn(
+        "WebSocket is already connecting or connected. Skipping new connection."
+      );
+      return;
+    }
+    this.shouldReconnect = true;
+    this.isConnecting = true;
     const { baseUrl, username, password } = this.baseClient.getCredentials();
     const protocol = baseUrl.startsWith("https") ? "wss" : "ws";
     const normalizedHost = baseUrl.replace(/^https?:\/\//, "").replace(/\/ari$/, "");
     const queryParams = new URLSearchParams();
     queryParams.append("app", this.apps.join(","));
-    if (this.subscribedEvents?.length) {
-      this.subscribedEvents.forEach(
-        (event) => queryParams.append("event", event)
-      );
-    } else {
-      queryParams.append("subscribeAll", "true");
-    }
+    this.subscribedEvents?.forEach(
+      (event) => queryParams.append("event", event)
+    );
     this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
     console.log("Connecting to WebSocket...");
-    return this.initializeWebSocket(this.lastWsUrl);
+    try {
+      await this.initializeWebSocket(this.lastWsUrl);
+    } finally {
+      this.isConnecting = false;
+    }
   }
   /**
    * Initializes a WebSocket connection with exponential backoff retry mechanism.
@@ -2960,8 +3324,9 @@ var WebSocketClient = class extends EventEmitter4 {
       return new Promise((resolve, reject) => {
         try {
           this.ws = new WebSocket(wsUrl);
-          this.ws.on("open", () => {
+          this.ws.once("open", () => {
             console.log("WebSocket connection established successfully");
+            this.setupHeartbeat();
             if (this.isReconnecting) {
               this.emit("reconnected", {
                 apps: this.apps,
@@ -2974,7 +3339,7 @@ var WebSocketClient = class extends EventEmitter4 {
             resolve();
           });
           this.ws.on("message", (data) => this.handleMessage(data.toString()));
-          this.ws.on("close", (code) => {
+          this.ws.once("close", (code) => {
             console.warn(
               `WebSocket disconnected with code ${code}. Attempting to reconnect...`
             );
@@ -2982,7 +3347,7 @@ var WebSocketClient = class extends EventEmitter4 {
               this.reconnect(this.lastWsUrl);
             }
           });
-          this.ws.on("error", (err) => {
+          this.ws.once("error", (err) => {
             console.error("WebSocket error:", err.message);
             if (!this.isReconnecting) {
               this.reconnect(this.lastWsUrl);
@@ -2994,6 +3359,34 @@ var WebSocketClient = class extends EventEmitter4 {
         }
       });
     }, this.backOffOptions);
+  }
+  getEventKey(event) {
+    const ids = [];
+    if ("channel" in event && event.channel?.id) ids.push(event.channel.id);
+    if ("playback" in event && event.playback?.id) ids.push(event.playback.id);
+    if ("bridge" in event && event.bridge?.id) ids.push(event.bridge.id);
+    return `${event.type}-${ids.join("-")}`;
+  }
+  processEvent(event) {
+    if (this.subscribedEvents?.length && !this.subscribedEvents.includes(event.type)) {
+      return;
+    }
+    if ("channel" in event && event.channel?.id && this.ariClient) {
+      const instanceChannel = this.ariClient.Channel(event.channel.id);
+      instanceChannel.emitEvent(event);
+      event.instanceChannel = instanceChannel;
+    }
+    if ("playback" in event && event.playback?.id && this.ariClient) {
+      const instancePlayback = this.ariClient.Playback(event.playback.id);
+      instancePlayback.emitEvent(event);
+      event.instancePlayback = instancePlayback;
+    }
+    if ("bridge" in event && event.bridge?.id && this.ariClient) {
+      const instanceBridge = this.ariClient.Bridge(event.bridge.id);
+      instanceBridge.emitEvent(event);
+      event.instanceBridge = instanceBridge;
+    }
+    this.emit(event.type, event);
   }
   /**
    * Handles incoming WebSocket messages by parsing and processing events.
@@ -3010,30 +3403,20 @@ var WebSocketClient = class extends EventEmitter4 {
   handleMessage(rawMessage) {
     try {
       const event = JSON.parse(rawMessage);
-      if (this.subscribedEvents?.length && !this.subscribedEvents.includes(event.type)) {
-        return;
+      const key = this.getEventKey(event);
+      const existing = this.eventQueue.get(key);
+      if (existing) {
+        clearTimeout(existing);
       }
-      if ("channel" in event && event.channel?.id && this.ariClient) {
-        const instanceChannel = this.ariClient.Channel(event.channel.id);
-        instanceChannel.emitEvent(event);
-        event.instanceChannel = instanceChannel;
-      }
-      if ("playback" in event && event.playback?.id && this.ariClient) {
-        const instancePlayback = this.ariClient.Playback(event.playback.id);
-        instancePlayback.emitEvent(event);
-        event.instancePlayback = instancePlayback;
-      }
-      if ("bridge" in event && event.bridge?.id && this.ariClient) {
-        const instanceBridge = this.ariClient.Bridge(event.bridge.id);
-        instanceBridge.emitEvent(event);
-        event.instanceBridge = instanceBridge;
-      }
-      this.emit(event.type, event);
-    } catch (error) {
-      console.error(
-        "Error processing WebSocket message:",
-        error instanceof Error ? error.message : "Unknown error"
+      this.eventQueue.set(
+        key,
+        setTimeout(() => {
+          this.processEvent(event);
+          this.eventQueue.delete(key);
+        }, 100)
       );
+    } catch (error) {
+      console.error("Error processing WebSocket message:", error);
       this.emit("error", new Error("Failed to decode WebSocket message"));
     }
   }
@@ -3049,21 +3432,26 @@ var WebSocketClient = class extends EventEmitter4 {
    *
    * @emits reconnectFailed - Emitted if all reconnection attempts fail.
    */
-  reconnect(wsUrl) {
+  async reconnect(wsUrl) {
+    if (!this.shouldReconnect) {
+      console.warn(
+        "Reconnection skipped because WebSocket was intentionally closed."
+      );
+      return;
+    }
+    if (this.isReconnecting) {
+      console.warn("J\xE1 h\xE1 uma tentativa de reconex\xE3o em andamento.");
+      return;
+    }
     this.isReconnecting = true;
     this.reconnectionAttempts++;
-    console.log(
-      `Initiating reconnection attempt #${this.reconnectionAttempts}...`
-    );
-    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch(
-      (error) => {
-        console.error(
-          `Failed to reconnect after ${this.reconnectionAttempts} attempts:`,
-          error instanceof Error ? error.message : "Unknown error"
-        );
-        this.emit("reconnectFailed", error);
-      }
-    );
+    console.log(`Tentando reconex\xE3o #${this.reconnectionAttempts}...`);
+    (0, import_exponential_backoff.backOff)(() => this.initializeWebSocket(wsUrl), this.backOffOptions).catch((error) => {
+      console.error(`Falha ao reconectar: ${error.message}`);
+      this.emit("reconnectFailed", error);
+    }).finally(() => {
+      this.isReconnecting = false;
+    });
   }
   /**
    * Closes the WebSocket connection if it exists.
@@ -3074,18 +3462,34 @@ var WebSocketClient = class extends EventEmitter4 {
    *
    * @throws {Error} Logs an error message if closing the WebSocket fails.
    */
-  close() {
-    try {
-      if (this.ws) {
-        this.ws.close();
-        this.ws = void 0;
-        console.log("WebSocket connection closed");
+  async close() {
+    if (!this.ws) {
+      console.warn("No WebSocket connection to close");
+      return;
+    }
+    console.log("Closing WebSocket connection.");
+    this.shouldReconnect = false;
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+    const closeTimeout = setTimeout(() => {
+      if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+        this.ws.terminate();
       }
+    }, 5e3);
+    try {
+      this.ws.removeAllListeners();
+      await new Promise((resolve) => {
+        this.ws.once("close", () => {
+          clearTimeout(closeTimeout);
+          resolve();
+        });
+        this.ws.close();
+      });
     } catch (error) {
-      console.error(
-        "Error closing WebSocket:",
-        error instanceof Error ? error.message : "Unknown error"
-      );
+      console.error("Error closing WebSocket:", error);
+    } finally {
+      this.ws = void 0;
+      this.emit("disconnected");
     }
   }
   /**
@@ -3117,6 +3521,30 @@ var WebSocketClient = class extends EventEmitter4 {
   getState() {
     return this.ws?.readyState ?? WebSocket.CLOSED;
   }
+  /**
+   * Cleans up the WebSocketClient instance, resetting its state and clearing resources.
+   *
+   * This method performs the following cleanup operations:
+   * - Clears the event queue and cancels any pending timeouts.
+   * - Stops any ongoing reconnection attempts.
+   * - Clears the stored WebSocket URL.
+   * - Resets the reconnection attempt counter.
+   * - Removes all event listeners attached to this instance.
+   *
+   * This method is typically called when the WebSocketClient is no longer needed or
+   * before reinitializing the client to ensure a clean slate.
+   *
+   * @returns {void} This method doesn't return a value.
+   */
+  cleanup() {
+    this.eventQueue.forEach((timeout) => clearTimeout(timeout));
+    this.eventQueue.clear();
+    this.shouldReconnect = false;
+    this.isReconnecting = false;
+    this.lastWsUrl = "";
+    this.reconnectionAttempts = 0;
+    this.removeAllListeners();
+  }
 };
 
 // src/ari-client/ariClient.ts
@@ -3147,6 +3575,8 @@ var AriClient = class {
   }
   baseClient;
   webSocketClient;
+  eventListeners = /* @__PURE__ */ new Map();
+  // Armazena os listeners para limpeza
   channels;
   endpoints;
   applications;
@@ -3154,6 +3584,50 @@ var AriClient = class {
   sounds;
   asterisk;
   bridges;
+  async cleanup() {
+    try {
+      console.log("Starting ARI Client cleanup...");
+      if (this.webSocketClient) {
+        await this.closeWebSocket();
+      }
+      await Promise.all([
+        // Cleanup de channels
+        (async () => {
+          try {
+            this.channels.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up channels:", error);
+          }
+        })(),
+        // Cleanup de playbacks
+        (async () => {
+          try {
+            this.playbacks.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up playbacks:", error);
+          }
+        })(),
+        // Cleanup de bridges
+        (async () => {
+          try {
+            this.bridges.cleanup();
+          } catch (error) {
+            console.error("Error cleaning up bridges:", error);
+          }
+        })()
+      ]);
+      this.eventListeners.forEach((listeners, event) => {
+        listeners.forEach((listener) => {
+          this.off(event, listener);
+        });
+      });
+      this.eventListeners.clear();
+      console.log("ARI Client cleanup completed successfully");
+    } catch (error) {
+      console.error("Error during ARI Client cleanup:", error);
+      throw error;
+    }
+  }
   /**
    * Initializes a WebSocket connection for receiving events.
    *
@@ -3163,14 +3637,14 @@ var AriClient = class {
    * @throws {Error} If connection fails or if WebSocket is already connected
    */
   async connectWebSocket(apps, subscribedEvents) {
-    if (!apps.length) {
-      throw new Error("At least one application name is required");
-    }
-    if (this.webSocketClient) {
-      console.warn("WebSocket is already connected");
-      return;
-    }
     try {
+      if (!apps.length) {
+        throw new Error("At least one application name is required.");
+      }
+      if (this.webSocketClient) {
+        await this.closeWebSocket();
+        await new Promise((resolve) => setTimeout(resolve, 1e3));
+      }
       this.webSocketClient = new WebSocketClient(
         this.baseClient,
         apps,
@@ -3178,10 +3652,35 @@ var AriClient = class {
         this
       );
       await this.webSocketClient.connect();
-      console.log("WebSocket connection established successfully");
+      console.log("WebSocket connection established successfully.");
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
       this.webSocketClient = void 0;
+      throw error;
+    }
+  }
+  /**
+   * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
+   * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the destruction process is complete.
+   * @throws {Error} If an error occurs during the destruction process.
+   */
+  async destroy() {
+    try {
+      console.log("Destroying ARI Client...");
+      await this.cleanup();
+      this.webSocketClient = void 0;
+      this.channels = null;
+      this.playbacks = null;
+      this.bridges = null;
+      this.endpoints = null;
+      this.applications = null;
+      this.sounds = null;
+      this.asterisk = null;
+      console.log("ARI Client destroyed successfully");
+    } catch (error) {
+      console.error("Error destroying ARI Client:", error);
       throw error;
     }
   }
@@ -3196,8 +3695,15 @@ var AriClient = class {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
     }
+    const existingListeners = this.eventListeners.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(`Listener already registered for event ${event}, reusing.`);
+      return;
+    }
     this.webSocketClient.on(event, listener);
-    console.log(`Event listener registered for ${event}`);
+    existingListeners.push(listener);
+    this.eventListeners.set(event, existingListeners);
+    console.log(`Event listener successfully registered for ${event}`);
   }
   /**
    * Registers a one-time event listener for WebSocket events.
@@ -3210,7 +3716,19 @@ var AriClient = class {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
     }
-    this.webSocketClient.once(event, listener);
+    const existingListeners = this.eventListeners.get(event) || [];
+    if (existingListeners.includes(listener)) {
+      console.warn(
+        `One-time listener already registered for event ${event}, reusing.`
+      );
+      return;
+    }
+    const wrappedListener = (data) => {
+      listener(data);
+      this.off(event, wrappedListener);
+    };
+    this.webSocketClient.once(event, wrappedListener);
+    this.eventListeners.set(event, [...existingListeners, wrappedListener]);
     console.log(`One-time event listener registered for ${event}`);
   }
   /**
@@ -3225,19 +3743,57 @@ var AriClient = class {
       return;
     }
     this.webSocketClient.off(event, listener);
+    const existingListeners = this.eventListeners.get(event) || [];
+    this.eventListeners.set(
+      event,
+      existingListeners.filter((l) => l !== listener)
+    );
     console.log(`Event listener removed for ${event}`);
   }
   /**
    * Closes the WebSocket connection if one exists.
    */
   closeWebSocket() {
-    if (!this.webSocketClient) {
-      console.warn("No WebSocket connection to close");
-      return;
-    }
-    this.webSocketClient.close();
-    this.webSocketClient = void 0;
-    console.log("WebSocket connection closed");
+    return new Promise((resolve) => {
+      if (!this.webSocketClient) {
+        console.warn("No WebSocket connection to close");
+        resolve();
+        return;
+      }
+      console.log("Closing WebSocket connection and cleaning up listeners.");
+      const closeTimeout = setTimeout(() => {
+        if (this.webSocketClient) {
+          this.webSocketClient.removeAllListeners();
+          this.webSocketClient = void 0;
+        }
+        resolve();
+      }, 5e3);
+      this.eventListeners.forEach((listeners, event) => {
+        listeners.forEach((listener) => {
+          this.webSocketClient?.off(
+            event,
+            listener
+          );
+        });
+      });
+      this.eventListeners.clear();
+      this.webSocketClient.once("close", () => {
+        clearTimeout(closeTimeout);
+        this.webSocketClient = void 0;
+        console.log("WebSocket connection closed");
+        resolve();
+      });
+      this.webSocketClient.close().then(() => {
+        clearTimeout(closeTimeout);
+        this.webSocketClient = void 0;
+        resolve();
+      }).catch((error) => {
+        console.error("Error during WebSocket close:", error);
+        clearTimeout(closeTimeout);
+        this.webSocketClient = void 0;
+        resolve();
+      });
+    });
   }
   /**
    * Creates or retrieves a Channel instance.
@@ -3278,7 +3834,7 @@ var AriClient = class {
    * @returns {boolean} True if WebSocket is connected, false otherwise
    */
   isWebSocketConnected() {
-    return !!this.webSocketClient;
+    return !!this.webSocketClient && this.webSocketClient.isConnected();
   }
 };
 export {

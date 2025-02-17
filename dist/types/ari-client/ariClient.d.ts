@@ -24,6 +24,7 @@ export declare class AriClient {
     private readonly config;
     private readonly baseClient;
     private webSocketClient?;
+    private eventListeners;
     readonly channels: Channels;
     readonly endpoints: Endpoints;
     readonly applications: Applications;
@@ -38,6 +39,7 @@ export declare class AriClient {
      * @throws {Error} If required configuration parameters are missing
      */
     constructor(config: AriClientConfig);
+    cleanup(): Promise<void>;
     /**
      * Initializes a WebSocket connection for receiving events.
      *
@@ -47,6 +49,14 @@ export declare class AriClient {
      * @throws {Error} If connection fails or if WebSocket is already connected
      */
     connectWebSocket(apps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
+    /**
+     * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
+     * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
+     *
+     * @returns {Promise<void>} A promise that resolves when the destruction process is complete.
+     * @throws {Error} If an error occurs during the destruction process.
+     */
+    destroy(): Promise<void>;
     /**
      * Registers an event listener for WebSocket events.
      *
@@ -79,7 +89,7 @@ export declare class AriClient {
     /**
      * Closes the WebSocket connection if one exists.
      */
-    closeWebSocket(): void;
+    closeWebSocket(): Promise<void>;
     /**
      * Creates or retrieves a Channel instance.
      *

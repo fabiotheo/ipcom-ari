@@ -5,6 +5,7 @@ export abstract class BaseResource {
   protected readonly client: AriClient;
   private readonly emitter: EventEmitter;
   private readonly resourceId: string;
+  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Armazena listeners para remoção futura
 
   protected constructor(client: AriClient, resourceId: string) {
     this.client = client;
@@ -18,16 +19,32 @@ export abstract class BaseResource {
    * @param callback Função callback a ser chamada quando o evento ocorre.
    */
   public on<T extends string>(event: T, callback: (data: any) => void): void {
+    const eventKey = `${event}-${this.resourceId}`;
+
+    // 🔹 Verifica se o listener já foi adicionado
+    const existingListeners = this.listenersMap.get(eventKey) || [];
+    if (existingListeners.includes(callback)) {
+      console.warn(`Listener já registrado para ${eventKey}, reutilizando.`);
+      return;
+    }
+
     console.log({
       baseEvent: "on",
       event,
-      name: `${event}-${this.resourceId}`,
+      name: eventKey,
     });
-    this.emitter.on(`${event}-${this.resourceId}`, callback);
+
+    this.emitter.on(eventKey, callback);
+
+    // 🔹 Armazena o listener para remoção futura
+    if (!this.listenersMap.has(eventKey)) {
+      this.listenersMap.set(eventKey, []);
+    }
+    this.listenersMap.get(eventKey)!.push(callback);
   }
 
   /**
-   * Remove um listener para eventos do recurso.
+   * Remove um listener específico do evento.
    * @param event O tipo de evento.
    * @param callback Função callback a ser removida.
    */
@@ -35,12 +52,22 @@ export abstract class BaseResource {
     event: T,
     callback: (data: any) => void,
   ): void {
+    const eventKey = `${event}-${this.resourceId}`;
+
     console.log({
       baseEvent: "removeListener - baseResources",
       event,
-      name: `${event}-${this.resourceId}`,
+      name: eventKey,
     });
-    this.emitter.removeListener(`${event}-${this.resourceId}`, callback);
+
+    this.emitter.off(eventKey, callback);
+
+    // 🔹 Remove do mapa de listeners
+    const storedListeners = this.listenersMap.get(eventKey) || [];
+    this.listenersMap.set(
+      eventKey,
+      storedListeners.filter((l) => l !== callback),
+    );
   }
 
   /**
@@ -48,7 +75,32 @@ export abstract class BaseResource {
    * @param event O tipo de evento.
    */
   public removeAllListeners<T extends string>(event: T): void {
-    this.emitter.removeAllListeners(`${event}-${this.resourceId}`);
+    const eventKey = `${event}-${this.resourceId}`;
+
+    console.log({
+      baseEvent: "removeAllListeners",
+      event,
+      name: eventKey,
+    });
+
+    this.emitter.removeAllListeners(eventKey);
+    this.listenersMap.delete(eventKey);
+  }
+
+  /**
+   * Remove todos os listeners de todos os eventos associados a este recurso.
+   */
+  public clearAllListeners(): void {
+    console.log(`Removing all event listeners for resource ${this.resourceId}`);
+
+    this.listenersMap.forEach((listeners, eventKey) => {
+      listeners.forEach((listener) => {
+        this.emitter.off(eventKey, listener as (...args: any[]) => void);
+      });
+    });
+
+    this.listenersMap.clear();
+    this.emitter.removeAllListeners();
   }
 
   /**
@@ -57,11 +109,21 @@ export abstract class BaseResource {
    * @param data Os dados associados ao evento.
    */
   public emit<T extends string>(event: T, data: any): void {
+    const eventKey = `${event}-${this.resourceId}`;
+
+    if (!this.emitter.listenerCount(eventKey)) {
+      console.warn(
+        `No listeners registered for event ${eventKey}, skipping emit.`,
+      );
+      return;
+    }
+
     console.log({
       baseEvent: "emit - baseResources",
       event,
-      name: `${event}-${this.resourceId}`,
+      name: eventKey,
     });
-    this.emitter.emit(`${event}-${this.resourceId}`, data);
+
+    this.emitter.emit(eventKey, data);
   }
 }

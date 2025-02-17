@@ -13,9 +13,39 @@ export declare class WebSocketClient extends EventEmitter {
     private readonly ariClient?;
     private ws?;
     private isReconnecting;
+    private isConnecting;
+    private shouldReconnect;
     private readonly maxReconnectAttempts;
     private reconnectionAttempts;
     private lastWsUrl;
+    private eventQueue;
+    /**
+     * Logs the current connection status of the WebSocket client at regular intervals.
+     *
+     * This method sets up an interval that logs various connection-related metrics every 60 seconds.
+     * The logged information includes:
+     * - The number of active connections (0 or 1)
+     * - The current state of the WebSocket connection
+     * - The number of reconnection attempts made
+     * - The size of the event queue
+     *
+     * This can be useful for monitoring the health and status of the WebSocket connection over time.
+     *
+     * @private
+     * @returns {void}
+     */
+    private logConnectionStatus;
+    /**
+     * Sets up a heartbeat mechanism for the WebSocket connection.
+     *
+     * This method creates an interval that sends a ping message every 30 seconds
+     * to keep the connection alive. The heartbeat is automatically cleared when
+     * the WebSocket connection is closed.
+     *
+     * @private
+     * @returns {void}
+     */
+    private setupHeartbeat;
     private readonly backOffOptions;
     /**
      * Creates a new WebSocketClient instance.
@@ -58,6 +88,8 @@ export declare class WebSocketClient extends EventEmitter {
      *         after the maximum number of retry attempts.
      */
     private initializeWebSocket;
+    private getEventKey;
+    private processEvent;
     /**
      * Handles incoming WebSocket messages by parsing and processing events.
      *
@@ -93,7 +125,7 @@ export declare class WebSocketClient extends EventEmitter {
      *
      * @throws {Error} Logs an error message if closing the WebSocket fails.
      */
-    close(): void;
+    close(): Promise<void>;
     /**
      * Checks if the WebSocket connection is currently open and active.
      *
@@ -119,5 +151,21 @@ export declare class WebSocketClient extends EventEmitter {
      * @returns {number} A number representing the current state of the WebSocket connection.
      */
     getState(): number;
+    /**
+     * Cleans up the WebSocketClient instance, resetting its state and clearing resources.
+     *
+     * This method performs the following cleanup operations:
+     * - Clears the event queue and cancels any pending timeouts.
+     * - Stops any ongoing reconnection attempts.
+     * - Clears the stored WebSocket URL.
+     * - Resets the reconnection attempt counter.
+     * - Removes all event listeners attached to this instance.
+     *
+     * This method is typically called when the WebSocketClient is no longer needed or
+     * before reinitializing the client to ensure a clean slate.
+     *
+     * @returns {void} This method doesn't return a value.
+     */
+    cleanup(): void;
 }
 //# sourceMappingURL=websocketClient.d.ts.map

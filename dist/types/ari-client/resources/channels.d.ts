@@ -10,6 +10,7 @@ export declare class ChannelInstance {
     private readonly baseClient;
     private readonly eventEmitter;
     private channelData;
+    private readonly listenersMap;
     readonly id: string;
     constructor(client: AriClient, baseClient: BaseClient, channelId?: string);
     /**
@@ -36,6 +37,10 @@ export declare class ChannelInstance {
     off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
+    /**
+     * Cleans up the ChannelInstance, resetting its state and clearing resources.
+     */
+    cleanup(): void;
     /**
      * Emits an event if it matches the current channel
      */
@@ -186,6 +191,7 @@ export declare class Channels {
     private readonly baseClient;
     private readonly client;
     private readonly channelInstances;
+    private eventQueue;
     constructor(baseClient: BaseClient, client: AriClient);
     /**
      * Creates or retrieves a ChannelInstance.
@@ -205,6 +211,12 @@ export declare class Channels {
     Channel(params?: {
         id?: string;
     }): ChannelInstance;
+    cleanup(): void;
+    /**
+     * Removes all channel instances and cleans up their resources.
+     * This method ensures proper cleanup of all channels and their associated listeners.
+     */
+    remove(): void;
     /**
      * Retrieves the details of a specific channel.
      *
