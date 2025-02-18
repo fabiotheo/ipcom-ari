@@ -155,7 +155,6 @@ export class AriClient {
       );
 
       await this.webSocketClient.connect();
-      console.log("WebSocket connection established successfully.");
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
       this.webSocketClient = undefined;
@@ -166,20 +165,20 @@ export class AriClient {
   /**
    * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
    * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
-   * 
+   *
    * @returns {Promise<void>} A promise that resolves when the destruction process is complete.
    * @throws {Error} If an error occurs during the destruction process.
    */
   public async destroy(): Promise<void> {
     try {
-      console.log('Destroying ARI Client...');
-  
+      console.log("Destroying ARI Client...");
+
       // Cleanup de todos os recursos
       await this.cleanup();
-  
+
       // Limpar referências
       this.webSocketClient = undefined;
-  
+
       // Remover todas as referências circulares
       (this.channels as any) = null;
       (this.playbacks as any) = null;
@@ -188,10 +187,10 @@ export class AriClient {
       (this.applications as any) = null;
       (this.sounds as any) = null;
       (this.asterisk as any) = null;
-  
-      console.log('ARI Client destroyed successfully');
+
+      console.log("ARI Client destroyed successfully");
     } catch (error) {
-      console.error('Error destroying ARI Client:', error);
+      console.error("Error destroying ARI Client:", error);
       throw error;
     }
   }
@@ -222,7 +221,7 @@ export class AriClient {
     existingListeners.push(listener);
     this.eventListeners.set(event, existingListeners);
 
-    console.log(`Event listener successfully registered for ${event}`);
+    // console.log(`Event listener successfully registered for ${event}`);
   }
 
   /**

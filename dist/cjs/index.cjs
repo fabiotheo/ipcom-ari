@@ -3318,7 +3318,6 @@ var WebSocketClient = class extends import_events4.EventEmitter {
       (event) => queryParams.append("event", event)
     );
     this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
-    console.log("Connecting to WebSocket...");
     try {
       await this.initializeWebSocket(this.lastWsUrl);
     } finally {
@@ -3346,7 +3345,6 @@ var WebSocketClient = class extends import_events4.EventEmitter {
         try {
           this.ws = new import_ws.default(wsUrl);
           this.ws.once("open", () => {
-            console.log("WebSocket connection established successfully");
             this.setupHeartbeat();
             if (this.isReconnecting) {
               this.emit("reconnected", {
@@ -3673,7 +3671,6 @@ var AriClient = class {
         this
       );
       await this.webSocketClient.connect();
-      console.log("WebSocket connection established successfully.");
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
       this.webSocketClient = void 0;
@@ -3683,7 +3680,7 @@ var AriClient = class {
   /**
    * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
    * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
-   * 
+   *
    * @returns {Promise<void>} A promise that resolves when the destruction process is complete.
    * @throws {Error} If an error occurs during the destruction process.
    */
@@ -3724,7 +3721,6 @@ var AriClient = class {
     this.webSocketClient.on(event, listener);
     existingListeners.push(listener);
     this.eventListeners.set(event, existingListeners);
-    console.log(`Event listener successfully registered for ${event}`);
   }
   /**
    * Registers a one-time event listener for WebSocket events.

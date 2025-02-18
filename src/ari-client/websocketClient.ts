@@ -146,7 +146,6 @@ export class WebSocketClient extends EventEmitter {
 
     this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
 
-    console.log("Connecting to WebSocket...");
     try {
       await this.initializeWebSocket(this.lastWsUrl);
     } finally {
@@ -176,7 +175,6 @@ export class WebSocketClient extends EventEmitter {
           this.ws = new WebSocket(wsUrl);
 
           this.ws.once("open", () => {
-            console.log("WebSocket connection established successfully");
             this.setupHeartbeat();
             if (this.isReconnecting) {
               this.emit("reconnected", {
