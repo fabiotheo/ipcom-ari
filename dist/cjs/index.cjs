@@ -1803,7 +1803,7 @@ var ChannelInstance = class {
    * Otherwise, all listeners for the given event type are removed.
    *
    * @param {T} event - The type of WebSocket event to remove listener(s) for
-   * @param {Function} [listener] - Optional specific listener to remove
+   * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    * @throws {Error} If no event type is provided
    */
   off(event, listener) {
@@ -2765,7 +2765,7 @@ var PlaybackInstance = class {
    * Registers an event listener for a specific WebSocket event type.
    *
    * @param {T} event - Event type to listen for
-   * @param {Function} listener - Callback function for the event
+   * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
   on(event, listener) {
     if (!event) {
@@ -2793,7 +2793,7 @@ var PlaybackInstance = class {
    * Registers a one-time event listener for a specific WebSocket event type.
    *
    * @param {T} event - Event type to listen for
-   * @param {Function} listener - Callback function for the event
+   * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
   once(event, listener) {
     if (!event) {
@@ -2823,7 +2823,7 @@ var PlaybackInstance = class {
    * Removes event listener(s) for a specific WebSocket event type.
    *
    * @param {T} event - Event type to remove listener(s) for
-   * @param {Function} [listener] - Optional specific listener to remove
+   * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    */
   off(event, listener) {
     if (!event) {
@@ -3004,11 +3004,11 @@ var Playbacks = class {
    * This method performs the following cleanup operations:
    * 1. Clears all pending timeouts in the event queue.
    * 2. Removes all playback instances.
-   * 
+   *
    * @remarks
    * This method should be called when the Playbacks instance is no longer needed
    * to ensure proper resource management and prevent memory leaks.
-   * 
+   *
    * @returns {void} This method doesn't return a value.
    */
   cleanup() {
@@ -3325,6 +3325,58 @@ var WebSocketClient = class extends import_events4.EventEmitter {
     }
   }
   /**
+   * Reconecta o WebSocket com uma lista atualizada de aplicações.
+   *
+   * @param {string[]} newApps - Lista de aplicações para reconectar
+   * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+   * @returns {Promise<void>} Promise resolvida quando reconectado com sucesso
+   */
+  async reconnectWithApps(newApps, subscribedEvents) {
+    if (!newApps.length) {
+      throw new Error("At least one application name is required");
+    }
+    const uniqueApps = Array.from(/* @__PURE__ */ new Set([...this.apps, ...newApps]));
+    if (uniqueApps.length === this.apps.length && uniqueApps.every((app) => this.apps.includes(app))) {
+      console.log(
+        "No changes in applications list, maintaining current connection"
+      );
+      return;
+    }
+    console.log(
+      `Reconnecting WebSocket with updated applications: ${uniqueApps.join(", ")}`
+    );
+    this.apps = uniqueApps;
+    if (subscribedEvents) {
+      this.subscribedEvents = subscribedEvents;
+    }
+    if (this.ws) {
+      await new Promise((resolve) => {
+        this.once("disconnected", () => resolve());
+        this.close();
+      });
+    }
+    await this.connect();
+    console.log("WebSocket reconnected successfully with updated applications");
+  }
+  /**
+   * Adiciona novas aplicações à conexão WebSocket existente.
+   *
+   * @param {string[]} newApps - Lista de novas aplicações para adicionar
+   * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+   * @returns {Promise<void>} Promise resolvida quando as aplicações são adicionadas com sucesso
+   */
+  async addApps(newApps, subscribedEvents) {
+    if (!newApps.length) {
+      throw new Error("At least one application name is required");
+    }
+    const appsToAdd = newApps.filter((app) => !this.apps.includes(app));
+    if (appsToAdd.length === 0) {
+      console.log("All applications are already registered");
+      return;
+    }
+    await this.reconnectWithApps(appsToAdd, subscribedEvents);
+  }
+  /**
    * Initializes a WebSocket connection with exponential backoff retry mechanism.
    *
    * This method attempts to establish a WebSocket connection to the specified URL.
@@ -3595,7 +3647,6 @@ var AriClient = class {
   baseClient;
   webSocketClient;
   eventListeners = /* @__PURE__ */ new Map();
-  // Armazena os listeners para limpeza
   channels;
   endpoints;
   applications;
@@ -3653,16 +3704,19 @@ var AriClient = class {
    * @param {string[]} apps - List of application names to subscribe to
    * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
    * @returns {Promise<void>} Resolves when connection is established
-   * @throws {Error} If connection fails or if WebSocket is already connected
+   * @throws {Error} If connection fails
    */
   async connectWebSocket(apps, subscribedEvents) {
     try {
       if (!apps.length) {
         throw new Error("At least one application name is required.");
       }
-      if (this.webSocketClient) {
-        await this.closeWebSocket();
-        await new Promise((resolve) => setTimeout(resolve, 1e3));
+      if (this.webSocketClient && this.webSocketClient.isConnected()) {
+        console.log(
+          "WebSocket already connected. Reconnecting with updated apps..."
+        );
+        await this.webSocketClient.reconnectWithApps(apps, subscribedEvents);
+        return;
       }
       this.webSocketClient = new WebSocketClient(
         this.baseClient,
@@ -3673,9 +3727,24 @@ var AriClient = class {
       await this.webSocketClient.connect();
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
-      this.webSocketClient = void 0;
       throw error;
     }
+  }
+  /**
+   * Adds applications to the existing WebSocket connection.
+   *
+   * @param {string[]} apps - Additional applications to subscribe to
+   * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
+   * @returns {Promise<void>} Resolves when applications are added successfully
+   * @throws {Error} If no WebSocket connection exists or if the operation fails
+   */
+  async addApplicationsToWebSocket(apps, subscribedEvents) {
+    if (!this.webSocketClient || !this.webSocketClient.isConnected()) {
+      throw new Error(
+        "No active WebSocket connection. Create one first with connectWebSocket()."
+      );
+    }
+    await this.webSocketClient.addApps(apps, subscribedEvents);
   }
   /**
    * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
@@ -3709,6 +3778,13 @@ var AriClient = class {
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
+  /**
+   * Registers an event listener for WebSocket events.
+   *
+   * @param {T} event - The event type to listen for
+   * @param {Function} listener - Callback function for handling the event
+   * @throws {Error} If WebSocket is not connected
+   */
   on(event, listener) {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
@@ -3721,6 +3797,7 @@ var AriClient = class {
     this.webSocketClient.on(event, listener);
     existingListeners.push(listener);
     this.eventListeners.set(event, existingListeners);
+    console.log(`Event listener successfully registered for ${event}`);
   }
   /**
    * Registers a one-time event listener for WebSocket events.
@@ -3745,7 +3822,10 @@ var AriClient = class {
       this.off(event, wrappedListener);
     };
     this.webSocketClient.once(event, wrappedListener);
-    this.eventListeners.set(event, [...existingListeners, wrappedListener]);
+    this.eventListeners.set(event, [
+      ...existingListeners,
+      wrappedListener
+    ]);
     console.log(`One-time event listener registered for ${event}`);
   }
   /**
@@ -3763,7 +3843,9 @@ var AriClient = class {
     const existingListeners = this.eventListeners.get(event) || [];
     this.eventListeners.set(
       event,
-      existingListeners.filter((l) => l !== listener)
+      existingListeners.filter(
+        (l) => l !== listener
+      )
     );
     console.log(`Event listener removed for ${event}`);
   }

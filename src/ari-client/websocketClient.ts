@@ -100,8 +100,8 @@ export class WebSocketClient extends EventEmitter {
    */
   constructor(
     private readonly baseClient: BaseClient,
-    private readonly apps: string[],
-    private readonly subscribedEvents?: WebSocketEventType[],
+    private apps: string[],
+    private subscribedEvents?: WebSocketEventType[],
     private readonly ariClient?: AriClient,
   ) {
     super();
@@ -151,6 +151,87 @@ export class WebSocketClient extends EventEmitter {
     } finally {
       this.isConnecting = false;
     }
+  }
+
+  /**
+   * Reconecta o WebSocket com uma lista atualizada de aplicações.
+   *
+   * @param {string[]} newApps - Lista de aplicações para reconectar
+   * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+   * @returns {Promise<void>} Promise resolvida quando reconectado com sucesso
+   */
+  public async reconnectWithApps(
+    newApps: string[],
+    subscribedEvents?: WebSocketEventType[],
+  ): Promise<void> {
+    if (!newApps.length) {
+      throw new Error("At least one application name is required");
+    }
+
+    // Mesclar aplicações existentes com novas
+    const uniqueApps = Array.from(new Set([...this.apps, ...newApps]));
+
+    // Se não há mudanças nas aplicações, não reconectar
+    if (
+      uniqueApps.length === this.apps.length &&
+      uniqueApps.every((app) => this.apps.includes(app))
+    ) {
+      console.log(
+        "No changes in applications list, maintaining current connection",
+      );
+      return;
+    }
+
+    console.log(
+      `Reconnecting WebSocket with updated applications: ${uniqueApps.join(", ")}`,
+    );
+
+    // Armazenar os aplicativos atualizados
+    this.apps = uniqueApps;
+
+    // Atualizar eventos inscritos se fornecidos
+    if (subscribedEvents) {
+      this.subscribedEvents = subscribedEvents;
+    }
+
+    // Fechar conexão existente
+    if (this.ws) {
+      await new Promise<void>((resolve) => {
+        this.once("disconnected", () => resolve());
+        this.close();
+      });
+    }
+
+    // Reconectar com apps atualizados
+    await this.connect();
+    console.log("WebSocket reconnected successfully with updated applications");
+  }
+
+  /**
+   * Adiciona novas aplicações à conexão WebSocket existente.
+   *
+   * @param {string[]} newApps - Lista de novas aplicações para adicionar
+   * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+   * @returns {Promise<void>} Promise resolvida quando as aplicações são adicionadas com sucesso
+   */
+  public async addApps(
+    newApps: string[],
+    subscribedEvents?: WebSocketEventType[],
+  ): Promise<void> {
+    if (!newApps.length) {
+      throw new Error("At least one application name is required");
+    }
+
+    // Verificar se há novas aplicações que ainda não estão na lista
+    const appsToAdd = newApps.filter((app) => !this.apps.includes(app));
+
+    if (appsToAdd.length === 0) {
+      console.log("All applications are already registered");
+      return;
+    }
+
+    // Adicionar novas aplicações à lista atual
+    await this.reconnectWithApps(appsToAdd, subscribedEvents);
   }
 
   /**

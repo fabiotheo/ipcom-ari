@@ -41,7 +41,10 @@ const getErrorMessage = (error: unknown): string => {
 export class ChannelInstance {
   private readonly eventEmitter = new EventEmitter();
   private channelData: Channel | null = null;
-  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
+  private readonly listenersMap = new Map<
+    string,
+    ((...args: any[]) => void)[]
+  >(); // 🔹 Guarda listeners para remoção posterior
   public readonly id: string;
 
   constructor(
@@ -84,7 +87,9 @@ export class ChannelInstance {
     if (!this.listenersMap.has(event)) {
       this.listenersMap.set(event, []);
     }
-    this.listenersMap.get(event)!.push(wrappedListener);
+    this.listenersMap
+      .get(event)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
@@ -124,7 +129,9 @@ export class ChannelInstance {
     if (!this.listenersMap.has(eventKey)) {
       this.listenersMap.set(eventKey, []);
     }
-    this.listenersMap.get(eventKey)!.push(wrappedListener);
+    this.listenersMap
+      .get(eventKey)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
@@ -133,7 +140,7 @@ export class ChannelInstance {
    * Otherwise, all listeners for the given event type are removed.
    *
    * @param {T} event - The type of WebSocket event to remove listener(s) for
-   * @param {Function} [listener] - Optional specific listener to remove
+   * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    * @throws {Error} If no event type is provided
    */
   off<T extends WebSocketEvent["type"]>(

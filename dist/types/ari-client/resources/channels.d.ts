@@ -31,7 +31,7 @@ export declare class ChannelInstance {
      * Otherwise, all listeners for the given event type are removed.
      *
      * @param {T} event - The type of WebSocket event to remove listener(s) for
-     * @param {Function} [listener] - Optional specific listener to remove
+     * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      * @throws {Error} If no event type is provided
      */
     off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {

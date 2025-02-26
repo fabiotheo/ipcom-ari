@@ -29,7 +29,10 @@ const getErrorMessage = (error: unknown): string => {
  */
 export class PlaybackInstance {
   private readonly eventEmitter = new EventEmitter();
-  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
+  private readonly listenersMap = new Map<
+    string,
+    ((...args: any[]) => void)[]
+  >(); // 🔹 Guarda listeners para remoção posterior
   private playbackData: Playback | null = null;
   public readonly id: string;
 
@@ -52,7 +55,7 @@ export class PlaybackInstance {
    * Registers an event listener for a specific WebSocket event type.
    *
    * @param {T} event - Event type to listen for
-   * @param {Function} listener - Callback function for the event
+   * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
   on<T extends WebSocketEvent["type"]>(
     event: T,
@@ -83,14 +86,16 @@ export class PlaybackInstance {
     if (!this.listenersMap.has(event)) {
       this.listenersMap.set(event, []);
     }
-    this.listenersMap.get(event)!.push(wrappedListener);
+    this.listenersMap
+      .get(event)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
    * Registers a one-time event listener for a specific WebSocket event type.
    *
    * @param {T} event - Event type to listen for
-   * @param {Function} listener - Callback function for the event
+   * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
   once<T extends WebSocketEvent["type"]>(
     event: T,
@@ -126,14 +131,16 @@ export class PlaybackInstance {
     if (!this.listenersMap.has(eventKey)) {
       this.listenersMap.set(eventKey, []);
     }
-    this.listenersMap.get(eventKey)!.push(wrappedListener);
+    this.listenersMap
+      .get(eventKey)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
    * Removes event listener(s) for a specific WebSocket event type.
    *
    * @param {T} event - Event type to remove listener(s) for
-   * @param {Function} [listener] - Optional specific listener to remove
+   * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    */
   off<T extends WebSocketEvent["type"]>(
     event: T,
@@ -351,18 +358,18 @@ export class Playbacks {
    * This method performs the following cleanup operations:
    * 1. Clears all pending timeouts in the event queue.
    * 2. Removes all playback instances.
-   * 
+   *
    * @remarks
    * This method should be called when the Playbacks instance is no longer needed
    * to ensure proper resource management and prevent memory leaks.
-   * 
+   *
    * @returns {void} This method doesn't return a value.
    */
   public cleanup(): void {
     // Limpar event queue
     this.eventQueue.forEach((timeout) => clearTimeout(timeout));
     this.eventQueue.clear();
-  
+
     // Limpar todas as instâncias
     this.remove();
   }

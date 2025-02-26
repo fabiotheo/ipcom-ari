@@ -1,4 +1,5 @@
 import type { AriClientConfig, WebSocketEvent, WebSocketEventType } from "./interfaces";
+import type { TypedWebSocketEventListener } from "./interfaces/websocket.types";
 import { Applications } from "./resources/applications.js";
 import { Asterisk } from "./resources/asterisk";
 import { type BridgeInstance, Bridges } from "./resources/bridges";
@@ -46,9 +47,18 @@ export declare class AriClient {
      * @param {string[]} apps - List of application names to subscribe to
      * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
      * @returns {Promise<void>} Resolves when connection is established
-     * @throws {Error} If connection fails or if WebSocket is already connected
+     * @throws {Error} If connection fails
      */
     connectWebSocket(apps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
+    /**
+     * Adds applications to the existing WebSocket connection.
+     *
+     * @param {string[]} apps - Additional applications to subscribe to
+     * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
+     * @returns {Promise<void>} Resolves when applications are added successfully
+     * @throws {Error} If no WebSocket connection exists or if the operation fails
+     */
+    addApplicationsToWebSocket(apps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
     /**
      * Destroys the ARI Client instance, cleaning up all resources and removing circular references.
      * This method should be called when the ARI Client is no longer needed to ensure proper cleanup.
@@ -64,9 +74,14 @@ export declare class AriClient {
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    /**
+     * Registers an event listener for WebSocket events.
+     *
+     * @param {T} event - The event type to listen for
+     * @param {Function} listener - Callback function for handling the event
+     * @throws {Error} If WebSocket is not connected
+     */
+    on<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Registers a one-time event listener for WebSocket events.
      *
@@ -74,18 +89,14 @@ export declare class AriClient {
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    once<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Removes an event listener for WebSocket events.
      *
      * @param {T} event - The event type to remove listener for
      * @param {Function} listener - The listener function to remove
      */
-    off<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    off<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Closes the WebSocket connection if one exists.
      */

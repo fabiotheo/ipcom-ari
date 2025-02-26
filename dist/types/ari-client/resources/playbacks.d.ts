@@ -25,7 +25,7 @@ export declare class PlaybackInstance {
      * Registers an event listener for a specific WebSocket event type.
      *
      * @param {T} event - Event type to listen for
-     * @param {Function} listener - Callback function for the event
+     * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
     on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
@@ -34,7 +34,7 @@ export declare class PlaybackInstance {
      * Registers a one-time event listener for a specific WebSocket event type.
      *
      * @param {T} event - Event type to listen for
-     * @param {Function} listener - Callback function for the event
+     * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
     once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
@@ -43,7 +43,7 @@ export declare class PlaybackInstance {
      * Removes event listener(s) for a specific WebSocket event type.
      *
      * @param {T} event - Event type to remove listener(s) for
-     * @param {Function} [listener] - Optional specific listener to remove
+     * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      */
     off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
         type: T;

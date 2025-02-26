@@ -5,7 +5,10 @@ export abstract class BaseResource {
   protected readonly client: AriClient;
   private readonly emitter: EventEmitter;
   private readonly resourceId: string;
-  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Armazena listeners para remoção futura
+  private readonly listenersMap = new Map<
+    string,
+    ((...args: any[]) => void)[]
+  >(); // 🔹 Armazena listeners para remoção futura
 
   protected constructor(client: AriClient, resourceId: string) {
     this.client = client;
@@ -40,7 +43,7 @@ export abstract class BaseResource {
     if (!this.listenersMap.has(eventKey)) {
       this.listenersMap.set(eventKey, []);
     }
-    this.listenersMap.get(eventKey)!.push(callback);
+    this.listenersMap.get(eventKey)!.push(callback as (...args: any[]) => void);
   }
 
   /**

@@ -4,6 +4,10 @@ import type {
   WebSocketEvent,
   WebSocketEventType,
 } from "./interfaces";
+import type {
+  TypedWebSocketEventListener,
+  WebSocketEventListener,
+} from "./interfaces/websocket.types";
 import { Applications } from "./resources/applications.js";
 import { Asterisk } from "./resources/asterisk";
 import { type BridgeInstance, Bridges } from "./resources/bridges";
@@ -30,7 +34,7 @@ import { WebSocketClient } from "./websocketClient.js";
 export class AriClient {
   private readonly baseClient: BaseClient;
   private webSocketClient?: WebSocketClient;
-  private eventListeners = new Map<string, Function[]>(); // Armazena os listeners para limpeza
+  private eventListeners = new Map<string, WebSocketEventListener[]>();
 
   public readonly channels: Channels;
   public readonly endpoints: Endpoints;
@@ -111,7 +115,7 @@ export class AriClient {
       // Limpar listeners do cliente ARI
       this.eventListeners.forEach((listeners, event) => {
         listeners.forEach((listener) => {
-          this.off(event as WebSocketEvent["type"], listener as any);
+          this.off(event as WebSocketEvent["type"], listener);
         });
       });
       this.eventListeners.clear();
@@ -129,7 +133,7 @@ export class AriClient {
    * @param {string[]} apps - List of application names to subscribe to
    * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
    * @returns {Promise<void>} Resolves when connection is established
-   * @throws {Error} If connection fails or if WebSocket is already connected
+   * @throws {Error} If connection fails
    */
   public async connectWebSocket(
     apps: string[],
@@ -140,13 +144,16 @@ export class AriClient {
         throw new Error("At least one application name is required.");
       }
 
-      // Fechar conexão existente se houver
-      if (this.webSocketClient) {
-        await this.closeWebSocket();
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Pequeno delay para garantir limpeza
+      // Se já existe uma conexão, apenas adicione novas aplicações sem fechar
+      if (this.webSocketClient && this.webSocketClient.isConnected()) {
+        console.log(
+          "WebSocket already connected. Reconnecting with updated apps...",
+        );
+        await this.webSocketClient.reconnectWithApps(apps, subscribedEvents);
+        return;
       }
 
-      // Criar nova conexão
+      // Criar nova conexão (apenas se não existir uma ativa)
       this.webSocketClient = new WebSocketClient(
         this.baseClient,
         apps,
@@ -157,9 +164,29 @@ export class AriClient {
       await this.webSocketClient.connect();
     } catch (error) {
       console.error("Failed to establish WebSocket connection:", error);
-      this.webSocketClient = undefined;
       throw error;
     }
+  }
+
+  /**
+   * Adds applications to the existing WebSocket connection.
+   *
+   * @param {string[]} apps - Additional applications to subscribe to
+   * @param {WebSocketEventType[]} [subscribedEvents] - Optional list of specific event types to subscribe to
+   * @returns {Promise<void>} Resolves when applications are added successfully
+   * @throws {Error} If no WebSocket connection exists or if the operation fails
+   */
+  public async addApplicationsToWebSocket(
+    apps: string[],
+    subscribedEvents?: WebSocketEventType[],
+  ): Promise<void> {
+    if (!this.webSocketClient || !this.webSocketClient.isConnected()) {
+      throw new Error(
+        "No active WebSocket connection. Create one first with connectWebSocket().",
+      );
+    }
+
+    await this.webSocketClient.addApps(apps, subscribedEvents);
   }
 
   /**
@@ -202,9 +229,16 @@ export class AriClient {
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
+  /**
+   * Registers an event listener for WebSocket events.
+   *
+   * @param {T} event - The event type to listen for
+   * @param {Function} listener - Callback function for handling the event
+   * @throws {Error} If WebSocket is not connected
+   */
   public on<T extends WebSocketEvent["type"]>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: TypedWebSocketEventListener<T>,
   ): void {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
@@ -212,16 +246,19 @@ export class AriClient {
 
     // 🔹 Verifica se o listener já está registrado para evitar duplicação
     const existingListeners = this.eventListeners.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    if (existingListeners.includes(listener as WebSocketEventListener)) {
       console.warn(`Listener already registered for event ${event}, reusing.`);
       return;
     }
 
+    // Conectar o listener diretamente
     this.webSocketClient.on(event, listener);
-    existingListeners.push(listener);
+
+    // Armazenar o listener para referência e limpeza futura
+    existingListeners.push(listener as WebSocketEventListener);
     this.eventListeners.set(event, existingListeners);
 
-    // console.log(`Event listener successfully registered for ${event}`);
+    console.log(`Event listener successfully registered for ${event}`);
   }
 
   /**
@@ -233,7 +270,7 @@ export class AriClient {
    */
   public once<T extends WebSocketEvent["type"]>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: TypedWebSocketEventListener<T>,
   ): void {
     if (!this.webSocketClient) {
       throw new Error("WebSocket is not connected");
@@ -241,7 +278,7 @@ export class AriClient {
 
     // 🔹 Check if an identical listener already exists to avoid duplication
     const existingListeners = this.eventListeners.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    if (existingListeners.includes(listener as WebSocketEventListener)) {
       console.warn(
         `One-time listener already registered for event ${event}, reusing.`,
       );
@@ -254,7 +291,10 @@ export class AriClient {
     };
 
     this.webSocketClient.once(event, wrappedListener);
-    this.eventListeners.set(event, [...existingListeners, wrappedListener]);
+    this.eventListeners.set(event, [
+      ...existingListeners,
+      wrappedListener as WebSocketEventListener,
+    ]);
 
     console.log(`One-time event listener registered for ${event}`);
   }
@@ -267,7 +307,7 @@ export class AriClient {
    */
   public off<T extends WebSocketEvent["type"]>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: TypedWebSocketEventListener<T>,
   ): void {
     if (!this.webSocketClient) {
       console.warn("No WebSocket connection to remove listener from");
@@ -278,7 +318,9 @@ export class AriClient {
     const existingListeners = this.eventListeners.get(event) || [];
     this.eventListeners.set(
       event,
-      existingListeners.filter((l) => l !== listener),
+      existingListeners.filter(
+        (l) => l !== (listener as WebSocketEventListener),
+      ),
     );
 
     console.log(`Event listener removed for ${event}`);

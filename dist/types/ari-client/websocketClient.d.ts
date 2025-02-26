@@ -8,8 +8,8 @@ import type { WebSocketEventType } from "./interfaces";
  */
 export declare class WebSocketClient extends EventEmitter {
     private readonly baseClient;
-    private readonly apps;
-    private readonly subscribedEvents?;
+    private apps;
+    private subscribedEvents?;
     private readonly ariClient?;
     private ws?;
     private isReconnecting;
@@ -72,6 +72,22 @@ export declare class WebSocketClient extends EventEmitter {
      * @throws Will throw an error if the connection cannot be established.
      */
     connect(): Promise<void>;
+    /**
+     * Reconecta o WebSocket com uma lista atualizada de aplicações.
+     *
+     * @param {string[]} newApps - Lista de aplicações para reconectar
+     * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+     * @returns {Promise<void>} Promise resolvida quando reconectado com sucesso
+     */
+    reconnectWithApps(newApps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
+    /**
+     * Adiciona novas aplicações à conexão WebSocket existente.
+     *
+     * @param {string[]} newApps - Lista de novas aplicações para adicionar
+     * @param {WebSocketEventType[]} [subscribedEvents] - Tipos de eventos para se inscrever (opcional)
+     * @returns {Promise<void>} Promise resolvida quando as aplicações são adicionadas com sucesso
+     */
+    addApps(newApps: string[], subscribedEvents?: WebSocketEventType[]): Promise<void>;
     /**
      * Initializes a WebSocket connection with exponential backoff retry mechanism.
      *

@@ -49,7 +49,10 @@ const getErrorMessage = (error: unknown): string => {
  */
 export class BridgeInstance {
   private readonly eventEmitter = new EventEmitter();
-  private readonly listenersMap = new Map<string, Function[]>(); // 🔹 Guarda listeners para remoção posterior
+  private readonly listenersMap = new Map<
+    string,
+    ((...args: any[]) => void)[]
+  >(); // 🔹 Guarda listeners para remoção posterior
   private bridgeData: Bridge | null = null;
   public readonly id: string;
 
@@ -120,7 +123,9 @@ export class BridgeInstance {
     if (!this.listenersMap.has(event)) {
       this.listenersMap.set(event, []);
     }
-    this.listenersMap.get(event)!.push(wrappedListener);
+    this.listenersMap
+      .get(event)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
@@ -163,7 +168,9 @@ export class BridgeInstance {
     if (!this.listenersMap.has(eventKey)) {
       this.listenersMap.set(eventKey, []);
     }
-    this.listenersMap.get(eventKey)!.push(wrappedListener);
+    this.listenersMap
+      .get(eventKey)!
+      .push(wrappedListener as (...args: any[]) => void);
   }
 
   /**
