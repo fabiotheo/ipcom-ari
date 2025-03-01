@@ -1,13 +1,13 @@
 {
   "name": "@ipcom/asterisk-ari",
-  "version": "0.0.159",
+  "version": "0.0.160",
   "type": "module",
   "description": "JavaScript client for Asterisk REST Interface.",
   "homepage": "https://github.com/fabiotheo/ipcom-asterisk-ari",
   "keywords": ["Asterisk", "ARI", "Node.js", "TypeScript"],
-  "types": "dist/client.d.ts",
-  "main": "./dist/cjs/client.cjs",
-  "module": "./dist/esm/client.js",
+  "types": "./dist/types/index.d.ts",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "node build.js",
@@ -39,7 +39,8 @@
     ".": {
       "types": "./dist/types/index.d.ts",
       "require": "./dist/cjs/index.cjs",
-      "import": "./dist/esm/index.js"
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
     }
   },
   "files": ["dist"],

@@ -1,5 +1,7 @@
 import { execSync } from "node:child_process";
 import * as esbuild from "esbuild";
+import fs from "node:fs";
+import path from "node:path";
 
 // Caminhos principais
 const entryFile = "src/index.ts"; // Entrada principal
@@ -49,6 +51,16 @@ try {
     platform: "node",
     external: ["util", "stream", "axios", "ws", "form-data"],
   });
+
+  // 4. Certifique-se de que o arquivo package.json do CJS tem type=commonjs
+  const cjsDir = path.dirname(cjsOutputFile);
+  const cjsPackageJson = path.join(cjsDir, 'package.json');
+  
+  console.log("Criando package.json para compatibilidade CommonJS...");
+  fs.writeFileSync(
+    cjsPackageJson,
+    JSON.stringify({ type: "commonjs" }, null, 2)
+  );
 
   console.log("Build concluído com sucesso!");
 } catch (error) {

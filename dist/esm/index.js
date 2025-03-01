@@ -1877,6 +1877,78 @@ var ChannelInstance = class {
     }
   }
   /**
+   * Continues the execution of a dialplan for the current channel.
+   *
+   * @param {string} [context] - The dialplan context to continue execution in, if specified.
+   * @param {string} [extension] - The dialplan extension to proceed with, if provided.
+   * @param {number} [priority] - The priority within the dialplan extension to resume at, if specified.
+   * @param {string} [label] - The label to start from within the dialplan, if given.
+   * @return {Promise<void>} Resolves when the dialplan is successfully continued.
+   */
+  async continueDialplan(context, extension, priority, label) {
+    try {
+      if (!this.channelData) {
+        this.channelData = await this.getDetails();
+      }
+      await this.baseClient.post(`/channels/${this.id}/continue`, {
+        context,
+        extension,
+        priority,
+        label
+      });
+    } catch (error) {
+      const message = getErrorMessage2(error);
+      console.error(`Error continuing dialplan for channel ${this.id}:`, message);
+      throw new Error(`Failed to continue dialplan: ${message}`);
+    }
+  }
+  /**
+   * Initiates a snoop operation on this channel with the provided options.
+   * Snooping allows you to listen in or interact with an existing call.
+   *
+   * @param {SnoopOptions} options - Configuration options for the snooping operation.
+   * @return {Promise<Channel>} A promise that resolves to the snooped channel data.
+   * @throws {Error} If the channel is not initialized or if snooping fails.
+   */
+  async snoop(options) {
+    try {
+      if (!this.channelData) {
+        this.channelData = await this.getDetails();
+      }
+      const queryParams = toQueryParams2(options);
+      return await this.baseClient.post(
+        `/channels/${this.id}/snoop?${queryParams}`
+      );
+    } catch (error) {
+      const message = getErrorMessage2(error);
+      console.error(`Error snooping on channel ${this.id}:`, message);
+      throw new Error(`Failed to snoop channel: ${message}`);
+    }
+  }
+  /**
+   * Initiates a snoop operation on this channel with a specific snoop ID.
+   *
+   * @param {string} snoopId - The unique identifier for the snoop operation.
+   * @param {SnoopOptions} options - Configuration options for the snooping operation.
+   * @return {Promise<Channel>} A promise that resolves to the snooped channel data.
+   * @throws {Error} If the channel is not initialized or if snooping fails.
+   */
+  async snoopWithId(snoopId, options) {
+    try {
+      if (!this.channelData) {
+        this.channelData = await this.getDetails();
+      }
+      const queryParams = toQueryParams2(options);
+      return await this.baseClient.post(
+        `/channels/${this.id}/snoop/${snoopId}?${queryParams}`
+      );
+    } catch (error) {
+      const message = getErrorMessage2(error);
+      console.error(`Error snooping with ID on channel ${this.id}:`, message);
+      throw new Error(`Failed to snoop channel with ID: ${message}`);
+    }
+  }
+  /**
    * Plays media on the channel
    */
   async play(options, playbackId) {

@@ -65,6 +65,34 @@ export declare class ChannelInstance {
      */
     originate(data: OriginateRequest): Promise<Channel>;
     /**
+     * Continues the execution of a dialplan for the current channel.
+     *
+     * @param {string} [context] - The dialplan context to continue execution in, if specified.
+     * @param {string} [extension] - The dialplan extension to proceed with, if provided.
+     * @param {number} [priority] - The priority within the dialplan extension to resume at, if specified.
+     * @param {string} [label] - The label to start from within the dialplan, if given.
+     * @return {Promise<void>} Resolves when the dialplan is successfully continued.
+     */
+    continueDialplan(context?: string, extension?: string, priority?: number, label?: string): Promise<void>;
+    /**
+     * Initiates a snoop operation on this channel with the provided options.
+     * Snooping allows you to listen in or interact with an existing call.
+     *
+     * @param {SnoopOptions} options - Configuration options for the snooping operation.
+     * @return {Promise<Channel>} A promise that resolves to the snooped channel data.
+     * @throws {Error} If the channel is not initialized or if snooping fails.
+     */
+    snoop(options: SnoopOptions): Promise<Channel>;
+    /**
+     * Initiates a snoop operation on this channel with a specific snoop ID.
+     *
+     * @param {string} snoopId - The unique identifier for the snoop operation.
+     * @param {SnoopOptions} options - Configuration options for the snooping operation.
+     * @return {Promise<Channel>} A promise that resolves to the snooped channel data.
+     * @throws {Error} If the channel is not initialized or if snooping fails.
+     */
+    snoopWithId(snoopId: string, options: SnoopOptions): Promise<Channel>;
+    /**
      * Plays media on the channel
      */
     play(options: {
