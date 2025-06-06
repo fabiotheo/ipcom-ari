@@ -1,17 +1,17 @@
-import type { BaseClient } from "../baseClient.js";
+import type { BaseClient } from '../baseClient.js';
 import type {
   AsteriskInfo,
   AsteriskPing,
   Logging,
   Module,
   Variable,
-} from "../interfaces";
+} from '../interfaces';
 
 function toQueryParams<T>(options: T): string {
   return new URLSearchParams(
     Object.entries(options as Record<string, string>)
       .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, String(value)]),
+      .map(([key, value]) => [key, String(value)])
   ).toString();
 }
 
@@ -19,21 +19,21 @@ export class Asterisk {
   constructor(private client: BaseClient) {}
 
   async ping(): Promise<AsteriskPing> {
-    return this.client.get<AsteriskPing>("/asterisk/ping");
+    return this.client.get<AsteriskPing>('/asterisk/ping');
   }
 
   /**
    * Retrieves information about the Asterisk server.
    */
   async get(): Promise<AsteriskInfo> {
-    return this.client.get<AsteriskInfo>("/asterisk/info");
+    return this.client.get<AsteriskInfo>('/asterisk/info');
   }
 
   /**
    * Lists all loaded modules in the Asterisk server.
    */
   async list(): Promise<Module[]> {
-    return this.client.get<Module[]>("/asterisk/modules");
+    return this.client.get<Module[]>('/asterisk/modules');
   }
 
   /**
@@ -46,17 +46,17 @@ export class Asterisk {
    */
   async manage(
     moduleName: string,
-    action: "load" | "unload" | "reload",
+    action: 'load' | 'unload' | 'reload'
   ): Promise<void> {
     const url = `/asterisk/modules/${moduleName}`;
     switch (action) {
-      case "load":
+      case 'load':
         await this.client.post<void>(`${url}?action=load`);
         break;
-      case "unload":
+      case 'unload':
         await this.client.delete<void>(url);
         break;
-      case "reload":
+      case 'reload':
         await this.client.put<void>(url, {});
         break;
       default:
@@ -68,7 +68,7 @@ export class Asterisk {
    * Retrieves all configured logging channels.
    */
   async listLoggingChannels(): Promise<Logging[]> {
-    return this.client.get<Logging[]>("/asterisk/logging");
+    return this.client.get<Logging[]>('/asterisk/logging');
   }
 
   /**
@@ -76,12 +76,12 @@ export class Asterisk {
    */
   async manageLogChannel(
     logChannelName: string,
-    action: "add" | "remove",
-    configuration?: { type?: string; configuration?: string },
+    action: 'add' | 'remove',
+    configuration?: { type?: string; configuration?: string }
   ): Promise<void> {
     const queryParams = toQueryParams(configuration || {});
     return this.client.post<void>(
-      `/asterisk/logging/${logChannelName}?action=${encodeURIComponent(action)}&${queryParams}`,
+      `/asterisk/logging/${logChannelName}?action=${encodeURIComponent(action)}&${queryParams}`
     );
   }
 
@@ -90,7 +90,7 @@ export class Asterisk {
    */
   async getGlobalVariable(variableName: string): Promise<Variable> {
     return this.client.get<Variable>(
-      `/asterisk/variables?variable=${encodeURIComponent(variableName)}`,
+      `/asterisk/variables?variable=${encodeURIComponent(variableName)}`
     );
   }
 
@@ -99,7 +99,7 @@ export class Asterisk {
    */
   async setGlobalVariable(variableName: string, value: string): Promise<void> {
     return this.client.post<void>(
-      `/asterisk/variables?variable=${encodeURIComponent(variableName)}&value=${encodeURIComponent(value)}`,
+      `/asterisk/variables?variable=${encodeURIComponent(variableName)}&value=${encodeURIComponent(value)}`
     );
   }
 }

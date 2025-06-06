@@ -1,8 +1,8 @@
-import type { BaseClient } from "../baseClient.js";
+import type { BaseClient } from '../baseClient.js';
 import type {
   Application,
   ApplicationDetails,
-} from "../interfaces/applications.types.js";
+} from '../interfaces/applications.types.js';
 
 export interface ApplicationMessage {
   event: string;
@@ -19,10 +19,10 @@ export class Applications {
    * @throws {Error} If the API response is not an array.
    */
   async list(): Promise<Application[]> {
-    const applications = await this.client.get<unknown>("/applications");
+    const applications = await this.client.get<unknown>('/applications');
 
     if (!Array.isArray(applications)) {
-      throw new Error("Resposta da API /applications não é um array.");
+      throw new Error('Resposta da API /applications não é um array.');
     }
 
     return applications as Application[];
@@ -38,7 +38,7 @@ export class Applications {
   async getDetails(appName: string): Promise<ApplicationDetails> {
     try {
       return await this.client.get<ApplicationDetails>(
-        `/applications/${appName}`,
+        `/applications/${appName}`
       );
     } catch (error) {
       console.error(`Erro ao obter detalhes do aplicativo ${appName}:`, error);

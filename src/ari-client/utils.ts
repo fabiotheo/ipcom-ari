@@ -1,18 +1,18 @@
-import type { Channel, WebSocketEvent } from "./interfaces";
+import type { Channel, WebSocketEvent } from './interfaces';
 
 export function toQueryParams<T>(options: T): string {
   return new URLSearchParams(
     Object.entries(options as Record<string, string>)
       .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, value as string]),
+      .map(([key, value]) => [key, value as string])
   ).toString();
 }
 
 export function isPlaybackEvent(
   event: WebSocketEvent,
-  playbackId?: string,
+  playbackId?: string
 ): event is Extract<WebSocketEvent, { playbackId: string }> {
-  const hasPlayback = "playback" in event && event.playback?.id !== undefined;
+  const hasPlayback = 'playback' in event && event.playback?.id !== undefined;
   return hasPlayback && (!playbackId || event.playback?.id === playbackId);
 }
 
@@ -24,28 +24,28 @@ export function isPlaybackEvent(
  */
 export function isChannelEvent(
   event: WebSocketEvent,
-  channelId?: string,
+  channelId?: string
 ): event is Extract<WebSocketEvent, { channel: Channel }> {
   // Verifica se o evento tem a propriedade `channel`
-  const hasChannel = "channel" in event && event.channel?.id !== undefined;
+  const hasChannel = 'channel' in event && event.channel?.id !== undefined;
 
   return hasChannel && (!channelId || event.channel?.id === channelId);
 }
 
 export const channelEvents = [
-  "ChannelCreated",
-  "ChannelDestroyed",
-  "ChannelEnteredBridge",
-  "ChannelLeftBridge",
-  "ChannelStateChange",
-  "ChannelDtmfReceived",
-  "ChannelDialplan",
-  "ChannelCallerId",
-  "ChannelUserevent",
-  "ChannelHangupRequest",
-  "ChannelVarset",
-  "ChannelTalkingStarted",
-  "ChannelTalkingFinished",
-  "ChannelHold",
-  "ChannelUnhold",
+  'ChannelCreated',
+  'ChannelDestroyed',
+  'ChannelEnteredBridge',
+  'ChannelLeftBridge',
+  'ChannelStateChange',
+  'ChannelDtmfReceived',
+  'ChannelDialplan',
+  'ChannelCallerId',
+  'ChannelUserevent',
+  'ChannelHangupRequest',
+  'ChannelVarset',
+  'ChannelTalkingStarted',
+  'ChannelTalkingFinished',
+  'ChannelHold',
+  'ChannelUnhold',
 ];

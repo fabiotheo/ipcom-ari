@@ -1,8 +1,9 @@
-import { EventEmitter } from "events";
-import { isAxiosError } from "axios";
-import type { AriClient } from "../ariClient";
-import type { BaseClient } from "../baseClient.js";
-import type { Playback, WebSocketEvent } from "../interfaces";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { EventEmitter } from 'events';
+import { isAxiosError } from 'axios';
+import type { AriClient } from '../ariClient';
+import type { BaseClient } from '../baseClient.js';
+import type { Playback, WebSocketEvent } from '../interfaces';
 
 /**
  * Utility function to extract error message
@@ -14,13 +15,13 @@ const getErrorMessage = (error: unknown): string => {
     return (
       error.response?.data?.message ||
       error.message ||
-      "An axios error occurred"
+      'An axios error occurred'
     );
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "An unknown error occurred";
+  return 'An unknown error occurred';
 };
 
 /**
@@ -46,7 +47,7 @@ export class PlaybackInstance {
   constructor(
     private readonly client: AriClient,
     private readonly baseClient: BaseClient,
-    private readonly playbackId: string = `playback-${Date.now()}`,
+    private readonly playbackId: string = `playback-${Date.now()}`
   ) {
     this.id = playbackId;
   }
@@ -57,25 +58,25 @@ export class PlaybackInstance {
    * @param {T} event - Event type to listen for
    * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
-  on<T extends WebSocketEvent["type"]>(
+  on<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     // 🔹 Verifica se o listener já está registrado para evitar duplicação
     const existingListeners = this.listenersMap.get(event) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `Listener já registrado para evento ${event}, reutilizando.`,
+        `Listener já registrado para evento ${event}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("playback" in data && data.playback?.id === this.id) {
+      if ('playback' in data && data.playback?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
@@ -97,12 +98,12 @@ export class PlaybackInstance {
    * @param {T} event - Event type to listen for
    * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
    */
-  once<T extends WebSocketEvent["type"]>(
+  once<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     const eventKey = `${event}-${this.id}`;
@@ -111,13 +112,13 @@ export class PlaybackInstance {
     const existingListeners = this.listenersMap.get(eventKey) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("playback" in data && data.playback?.id === this.id) {
+      if ('playback' in data && data.playback?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
 
         // 🔹 Remove automaticamente o listener após a primeira execução
@@ -142,12 +143,12 @@ export class PlaybackInstance {
    * @param {T} event - Event type to remove listener(s) for
    * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    */
-  off<T extends WebSocketEvent["type"]>(
+  off<T extends WebSocketEvent['type']>(
     event: T,
-    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     if (listener) {
@@ -155,7 +156,7 @@ export class PlaybackInstance {
       const storedListeners = this.listenersMap.get(event) || [];
       this.listenersMap.set(
         event,
-        storedListeners.filter((l) => l !== listener),
+        storedListeners.filter((l) => l !== listener)
       );
     } else {
       this.eventEmitter.removeAllListeners(event);
@@ -186,11 +187,11 @@ export class PlaybackInstance {
    */
   emitEvent(event: WebSocketEvent): void {
     if (!event) {
-      console.warn("Received invalid event");
+      console.warn('Received invalid event');
       return;
     }
 
-    if ("playback" in event && event.playback?.id === this.id) {
+    if ('playback' in event && event.playback?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
     }
   }
@@ -203,12 +204,12 @@ export class PlaybackInstance {
    */
   async get(): Promise<Playback> {
     if (!this.id) {
-      throw new Error("No playback associated with this instance");
+      throw new Error('No playback associated with this instance');
     }
 
     try {
       this.playbackData = await this.baseClient.get<Playback>(
-        `/playbacks/${this.id}`,
+        `/playbacks/${this.id}`
       );
       return this.playbackData;
     } catch (error: unknown) {
@@ -225,15 +226,15 @@ export class PlaybackInstance {
    * @throws {Error} If playback is not properly initialized or operation fails
    */
   async control(
-    operation: "pause" | "unpause" | "reverse" | "forward",
+    operation: 'pause' | 'unpause' | 'reverse' | 'forward'
   ): Promise<void> {
     if (!this.id) {
-      throw new Error("No playback associated with this instance");
+      throw new Error('No playback associated with this instance');
     }
 
     try {
       await this.baseClient.post<void>(
-        `/playbacks/${this.id}/control?operation=${operation}`,
+        `/playbacks/${this.id}/control?operation=${operation}`
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -249,7 +250,7 @@ export class PlaybackInstance {
    */
   async stop(): Promise<void> {
     if (!this.id) {
-      throw new Error("No playback associated with this instance");
+      throw new Error('No playback associated with this instance');
     }
 
     try {
@@ -280,7 +281,7 @@ export class PlaybackInstance {
       listeners.forEach((listener) => {
         this.eventEmitter.off(
           event as string,
-          listener as (...args: any[]) => void,
+          listener as (...args: any[]) => void
         );
       });
     });
@@ -320,7 +321,7 @@ export class Playbacks {
 
   constructor(
     private baseClient: BaseClient,
-    private client: AriClient,
+    private client: AriClient
   ) {}
 
   /**
@@ -396,7 +397,7 @@ export class Playbacks {
 
     // Garantir que o map está vazio
     this.playbackInstances.clear();
-    console.log("All playback instances have been removed and cleaned up");
+    console.log('All playback instances have been removed and cleaned up');
   }
 
   /**
@@ -406,7 +407,7 @@ export class Playbacks {
    */
   public removePlaybackInstance(playbackId: string): void {
     if (!playbackId) {
-      throw new Error("Playback ID is required");
+      throw new Error('Playback ID is required');
     }
 
     const instance = this.playbackInstances.get(playbackId);
@@ -429,8 +430,8 @@ export class Playbacks {
    * @param {WebSocketEvent} event - The WebSocket event to propagate
    */
   public propagateEventToPlayback(event: WebSocketEvent): void {
-    if (!event || !("playback" in event) || !event.playback?.id) {
-      console.warn("Invalid WebSocket event received");
+    if (!event || !('playback' in event) || !event.playback?.id) {
+      console.warn('Invalid WebSocket event received');
       return;
     }
 
@@ -448,11 +449,11 @@ export class Playbacks {
           instance.emitEvent(event);
         } else {
           console.warn(
-            `No instance found for playback ${event.playback!.id}. Event ignored.`,
+            `No instance found for playback ${event.playback!.id}. Event ignored.`
           );
         }
         this.eventQueue.delete(key);
-      }, 100),
+      }, 100)
     );
   }
 
@@ -464,7 +465,7 @@ export class Playbacks {
    */
   async get(playbackId: string): Promise<Playback> {
     if (!playbackId) {
-      throw new Error("Playback ID is required");
+      throw new Error('Playback ID is required');
     }
 
     try {
@@ -484,10 +485,10 @@ export class Playbacks {
    */
   async control(
     playbackId: string,
-    operation: "pause" | "unpause" | "reverse" | "forward",
+    operation: 'pause' | 'unpause' | 'reverse' | 'forward'
   ): Promise<void> {
     if (!playbackId) {
-      throw new Error("Playback ID is required");
+      throw new Error('Playback ID is required');
     }
 
     try {
@@ -507,7 +508,7 @@ export class Playbacks {
    */
   async stop(playbackId: string): Promise<void> {
     if (!playbackId) {
-      throw new Error("Playback ID is required");
+      throw new Error('Playback ID is required');
     }
 
     try {

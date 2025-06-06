@@ -2,7 +2,7 @@ import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
   isAxiosError,
-} from "axios";
+} from 'axios';
 
 /**
  * Custom error class for HTTP-related errors
@@ -12,10 +12,10 @@ class HTTPError extends Error {
     message: string,
     public readonly status?: number,
     public readonly method?: string,
-    public readonly url?: string,
+    public readonly url?: string
   ) {
     super(message);
-    this.name = "HTTPError";
+    this.name = 'HTTPError';
   }
 }
 
@@ -39,11 +39,11 @@ export class BaseClient {
     private readonly baseUrl: string,
     private readonly username: string,
     private readonly password: string,
-    timeout = 5000,
+    timeout = 5000
   ) {
     if (!/^https?:\/\/.+/.test(baseUrl)) {
       throw new Error(
-        "Invalid base URL. It must start with http:// or https://",
+        'Invalid base URL. It must start with http:// or https://'
       );
     }
 
@@ -52,7 +52,7 @@ export class BaseClient {
       auth: { username, password },
       timeout,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
 
@@ -91,9 +91,9 @@ export class BaseClient {
       },
       (error: unknown) => {
         const message = this.getErrorMessage(error);
-        console.error("[Request Error]", message);
+        console.error('[Request Error]', message);
         return Promise.reject(new HTTPError(message));
-      },
+      }
     );
 
     this.client.interceptors.response.use(
@@ -103,10 +103,10 @@ export class BaseClient {
       (error: unknown) => {
         if (isAxiosError(error)) {
           const status = error.response?.status ?? 0;
-          const method = error.config?.method?.toUpperCase() ?? "UNKNOWN";
-          const url = error.config?.url ?? "unknown-url";
+          const method = error.config?.method?.toUpperCase() ?? 'UNKNOWN';
+          const url = error.config?.url ?? 'unknown-url';
           const message =
-            error.response?.data?.message || error.message || "Unknown error";
+            error.response?.data?.message || error.message || 'Unknown error';
 
           if (status === 404) {
             console.warn(`[404] Not Found: ${url}`);
@@ -122,9 +122,9 @@ export class BaseClient {
         }
 
         const message = this.getErrorMessage(error);
-        console.error("[Unexpected Error]", message);
+        console.error('[Unexpected Error]', message);
         throw new Error(message);
-      },
+      }
     );
   }
 
@@ -155,7 +155,7 @@ export class BaseClient {
   async post<T, D = unknown>(
     path: string,
     data?: D,
-    config?: AxiosRequestConfig,
+    config?: AxiosRequestConfig
   ): Promise<T> {
     try {
       const response = await this.client.post<T>(path, data, config);
@@ -176,7 +176,7 @@ export class BaseClient {
   async put<T, D = unknown>(
     path: string,
     data: D,
-    config?: AxiosRequestConfig,
+    config?: AxiosRequestConfig
   ): Promise<T> {
     try {
       const response = await this.client.put<T>(path, data, config);
@@ -207,12 +207,12 @@ export class BaseClient {
    */
   private getErrorMessage(error: unknown): string {
     if (isAxiosError(error)) {
-      return error.response?.data?.message || error.message || "HTTP Error";
+      return error.response?.data?.message || error.message || 'HTTP Error';
     }
     if (error instanceof Error) {
       return error.message;
     }
-    return "An unknown error occurred";
+    return 'An unknown error occurred';
   }
 
   /**
@@ -225,7 +225,7 @@ export class BaseClient {
         message,
         error.response?.status,
         error.config?.method?.toUpperCase(),
-        error.config?.url,
+        error.config?.url
       );
     }
     throw new Error(message);

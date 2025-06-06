@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { Sound, SoundListRequest } from "../interfaces/sounds.types.js";
+import type { BaseClient } from '../baseClient.js';
+import type { Sound, SoundListRequest } from '../interfaces/sounds.types.js';
 
 export class Sounds {
   constructor(private client: BaseClient) {}
@@ -14,12 +14,12 @@ export class Sounds {
   async list(params?: SoundListRequest): Promise<Sound[]> {
     const query = params
       ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
-      : "";
+      : '';
 
     const sounds = await this.client.get<unknown>(`/sounds${query}`);
 
     if (!Array.isArray(sounds)) {
-      throw new Error("Resposta da API /sounds não é um array.");
+      throw new Error('Resposta da API /sounds não é um array.');
     }
 
     return sounds as Sound[];

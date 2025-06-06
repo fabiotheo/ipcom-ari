@@ -1,4 +1,4 @@
-export type { AriClientConfig, AriApplication } from "./requests.js";
+export type { AriClientConfig, AriApplication } from './requests.js';
 export type {
   Channel,
   OriginateRequest,
@@ -10,25 +10,25 @@ export type {
   ChannelPlayback,
   ChannelVar,
   ChannelDialplan,
-} from "./channels.types.js";
-export type { Endpoint, EndpointDetails } from "./endpoints.types.js";
-export type { Playback, PlaybackControlRequest } from "./playbacks.types.js";
-export type { Application, ApplicationDetails } from "./applications.types.js";
-export type { Sound, SoundListRequest } from "./sounds.types.js";
+} from './channels.types.js';
+export type { Endpoint, EndpointDetails } from './endpoints.types.js';
+export type { Playback, PlaybackControlRequest } from './playbacks.types.js';
+export type { Application, ApplicationDetails } from './applications.types.js';
+export type { Sound, SoundListRequest } from './sounds.types.js';
 export type {
   AsteriskInfo,
   Module,
   Logging,
   Variable,
   AsteriskPing,
-} from "./asterisk.types";
+} from './asterisk.types';
 export type {
   WebSocketEvent,
   WebSocketEventType,
   ChannelEvent,
   PlaybackEvent,
   BridgeEvent,
-} from "./events.types.js";
+} from './events.types.js';
 export type {
   AddChannelRequest,
   RemoveChannelRequest,
@@ -36,4 +36,4 @@ export type {
   Bridge,
   BridgePlayback,
   PlayMediaRequest,
-} from "./bridges.types";
+} from './bridges.types';

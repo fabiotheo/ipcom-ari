@@ -1,65 +1,66 @@
-import type { ChannelInstance } from "../resources/channels";
-import type { PlaybackInstance, Playbacks } from "../resources/playbacks";
-import type { Bridge } from "./bridges.types";
-import type { Channel } from "./channels.types";
-import type { Playback } from "./playbacks.types";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ChannelInstance } from '../resources/channels';
+import type { PlaybackInstance, Playbacks } from '../resources/playbacks';
+import type { Bridge } from './bridges.types';
+import type { Channel } from './channels.types';
+import type { Playback } from './playbacks.types';
 
 export type ChannelEvent = Extract<WebSocketEvent, { channel: Channel }>;
 export type PlaybackEvent = Extract<WebSocketEvent, { playback: Playback }>;
 export type BridgeEvent = Extract<WebSocketEvent, { bridge: Bridge }>;
 
 export type WebSocketEventType =
-  | "DeviceStateChanged"
-  | "PlaybackStarted"
-  | "PlaybackContinuing"
-  | "PlaybackFinished"
-  | "RecordingStarted"
-  | "RecordingFinished"
-  | "RecordingFailed"
-  | "ApplicationMoveFailed"
-  | "ApplicationReplaced"
-  | "BridgeCreated"
-  | "BridgeDestroyed"
-  | "BridgeMerged"
-  | "BridgeBlindTransfer"
-  | "BridgeAttendedTransfer"
-  | "BridgeVideoSourceChanged"
-  | "ChannelCreated"
-  | "ChannelDestroyed"
-  | "ChannelEnteredBridge"
-  | "ChannelLeftBridge"
-  | "ChannelStateChange"
-  | "ChannelDtmfReceived"
-  | "ChannelDialplan"
-  | "ChannelCallerId"
-  | "ChannelUserevent"
-  | "ChannelHangupRequest"
-  | "ChannelVarset"
-  | "ChannelTalkingStarted"
-  | "ChannelTalkingFinished"
-  | "ChannelHold"
-  | "ChannelUnhold"
-  | "ContactStatusChange"
-  | "EndpointStateChange"
-  | "Dial"
-  | "StasisEnd"
-  | "StasisStart"
-  | "TextMessageReceived"
-  | "ChannelConnectedLine"
-  | "PeerStatusChange";
+  | 'DeviceStateChanged'
+  | 'PlaybackStarted'
+  | 'PlaybackContinuing'
+  | 'PlaybackFinished'
+  | 'RecordingStarted'
+  | 'RecordingFinished'
+  | 'RecordingFailed'
+  | 'ApplicationMoveFailed'
+  | 'ApplicationReplaced'
+  | 'BridgeCreated'
+  | 'BridgeDestroyed'
+  | 'BridgeMerged'
+  | 'BridgeBlindTransfer'
+  | 'BridgeAttendedTransfer'
+  | 'BridgeVideoSourceChanged'
+  | 'ChannelCreated'
+  | 'ChannelDestroyed'
+  | 'ChannelEnteredBridge'
+  | 'ChannelLeftBridge'
+  | 'ChannelStateChange'
+  | 'ChannelDtmfReceived'
+  | 'ChannelDialplan'
+  | 'ChannelCallerId'
+  | 'ChannelUserevent'
+  | 'ChannelHangupRequest'
+  | 'ChannelVarset'
+  | 'ChannelTalkingStarted'
+  | 'ChannelTalkingFinished'
+  | 'ChannelHold'
+  | 'ChannelUnhold'
+  | 'ContactStatusChange'
+  | 'EndpointStateChange'
+  | 'Dial'
+  | 'StasisEnd'
+  | 'StasisStart'
+  | 'TextMessageReceived'
+  | 'ChannelConnectedLine'
+  | 'PeerStatusChange';
 
 export const bridgeEvents = [
-  "BridgeCreated",
-  "BridgeDestroyed",
-  "BridgeMerged",
-  "BridgeBlindTransfer",
-  "BridgeAttendedTransfer",
-  "BridgeVideoSourceChanged",
+  'BridgeCreated',
+  'BridgeDestroyed',
+  'BridgeMerged',
+  'BridgeBlindTransfer',
+  'BridgeAttendedTransfer',
+  'BridgeVideoSourceChanged',
 ];
 
 export type WebSocketEvent =
   | {
-      type: "ChannelDtmfReceived";
+      type: 'ChannelDtmfReceived';
       digit: string; // O dígito DTMF recebido
       duration_ms: number; // Duração do DTMF em milissegundos
       channel: Channel; // O canal em que o DTMF foi recebido
@@ -67,7 +68,7 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "ChannelDialplan";
+      type: 'ChannelDialplan';
       channel: Channel; // O canal em que o DTMF foi recebido
       instanceChannel?: ChannelInstance;
       dialplan_app: string;
@@ -75,7 +76,7 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "ChannelVarset";
+      type: 'ChannelVarset';
       variable: string;
       value: string;
       channel?: Channel; // Opcional, conforme especificado no JSON
@@ -83,7 +84,7 @@ export type WebSocketEvent =
       instanceChannel?: ChannelInstance;
     }
   | {
-      type: "StasisStart";
+      type: 'StasisStart';
       args: string[]; // Lista de argumentos fornecidos
       channel: Channel; // Obrigatório
       instanceChannel?: ChannelInstance;
@@ -91,22 +92,14 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "PlaybackStarted";
+      type: 'PlaybackStarted';
       playback: Playbacks;
       asterisk_id: string;
       application: string;
       instancePlayback?: PlaybackInstance;
     }
   | {
-      type: "PlaybackContinuing";
-      playback: Playbacks;
-      playbackId: string;
-      asterisk_id: string;
-      application: string;
-      instancePlayback?: PlaybackInstance;
-    }
-  | {
-      type: "PlaybackFinished";
+      type: 'PlaybackContinuing';
       playback: Playbacks;
       playbackId: string;
       asterisk_id: string;
@@ -114,68 +107,76 @@ export type WebSocketEvent =
       instancePlayback?: PlaybackInstance;
     }
   | {
-      type: "BridgeCreated";
+      type: 'PlaybackFinished';
+      playback: Playbacks;
+      playbackId: string;
+      asterisk_id: string;
+      application: string;
+      instancePlayback?: PlaybackInstance;
+    }
+  | {
+      type: 'BridgeCreated';
       bridgeId: string;
       bridgeType: string;
       channels: Channel[]; // Array de Channels associados à Bridge
       application: string;
     }
   | {
-      type: "BridgeDestroyed";
+      type: 'BridgeDestroyed';
       bridgeId: string;
       application: string;
     }
   | {
-      type: "ChannelCreated";
+      type: 'ChannelCreated';
       channel: Channel; // Evento possui detalhes do canal criado
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelDestroyed";
+      type: 'ChannelDestroyed';
       channel: Channel; // Evento possui detalhes do canal destruído
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ApplicationMoveFailed";
+      type: 'ApplicationMoveFailed';
       application: string;
       channel: Channel;
       instanceChannel?: ChannelInstance;
     }
   | {
-      type: "RecordingStarted";
+      type: 'RecordingStarted';
       recordingId: string;
       name: string;
       application: string;
     }
   | {
-      type: "RecordingFinished";
+      type: 'RecordingFinished';
       recordingId: string;
       name: string;
       application: string;
     }
   | {
-      type: "RecordingFailed";
+      type: 'RecordingFailed';
       recordingId: string;
       name: string;
       reason: string;
       application: string;
     }
   | {
-      type: "DeviceStateChanged";
+      type: 'DeviceStateChanged';
       device: string;
       state: string; // Pode ser "ONLINE", "OFFLINE", etc.
       application: string;
     }
   | {
-      type: "BridgeMerged";
+      type: 'BridgeMerged';
       bridgeId: string; // ID da bridge resultante
       bridges: string[]; // IDs das bridges originais
       application: string;
     }
   | {
-      type: "BridgeBlindTransfer";
+      type: 'BridgeBlindTransfer';
       bridgeId: string; // ID da bridge onde ocorreu a transferência
       channel: Channel; // Canal que iniciou a transferência
       instanceChannel?: ChannelInstance;
@@ -183,7 +184,7 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "BridgeAttendedTransfer";
+      type: 'BridgeAttendedTransfer';
       bridgeId: string; // ID da bridge onde ocorreu a transferência
       transferer: Channel; // Canal que iniciou a transferência
       transferee: Channel; // Canal sendo transferido
@@ -191,84 +192,84 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "BridgeVideoSourceChanged";
+      type: 'BridgeVideoSourceChanged';
       bridgeId: string; // ID da bridge onde a fonte de vídeo mudou
       old_video_source_id?: string; // ID da antiga fonte de vídeo (opcional)
       new_video_source_id: string; // ID da nova fonte de vídeo
       application: string;
     }
   | {
-      type: "ChannelEnteredBridge";
+      type: 'ChannelEnteredBridge';
       bridgeId: string; // ID da bridge que o canal entrou
       channel: Channel; // Detalhes do canal que entrou na bridge
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelLeftBridge";
+      type: 'ChannelLeftBridge';
       bridgeId: string; // ID da bridge que o canal deixou
       channel: Channel; // Detalhes do canal que deixou a bridge
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelStateChange";
+      type: 'ChannelStateChange';
       channel: Channel; // Detalhes do canal cuja mudança de estado ocorreu
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelTalkingStarted";
+      type: 'ChannelTalkingStarted';
       channel: Channel; // Canal onde começou a detecção de fala
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelTalkingFinished";
+      type: 'ChannelTalkingFinished';
       channel: Channel; // Canal onde terminou a detecção de fala
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelUnhold";
+      type: 'ChannelUnhold';
       channel: Channel; // Canal que foi retirado de espera
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelHold";
+      type: 'ChannelHold';
       channel: Channel; // Canal que foi colocado em espera
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ContactStatusChange";
+      type: 'ContactStatusChange';
       contact_info: Record<string, any>; // Informações sobre o contato
       status: string; // Novo status do contato
       aor?: string; // Opcional, AOR associado
       application: string;
     }
   | {
-      type: "EndpointStateChange";
+      type: 'EndpointStateChange';
       endpoint: Record<string, any>; // Informações do endpoint
       state: string; // Novo estado do endpoint
       application: string;
     }
   | {
-      type: "Dial";
+      type: 'Dial';
       caller: Channel; // Canal que iniciou a operação de discagem
       peer: Channel; // Canal alvo da operação de discagem
       dialstring?: string; // Opcional, string de discagem usada
       application: string;
     }
   | {
-      type: "StasisEnd";
+      type: 'StasisEnd';
       channel: Channel; // Canal que deixou a aplicação Stasis
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "TextMessageReceived";
+      type: 'TextMessageReceived';
       to: string; // Destinatário da mensagem
       from: string; // Remetente da mensagem
       body: string; // Conteúdo da mensagem
@@ -276,13 +277,13 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "ChannelConnectedLine";
+      type: 'ChannelConnectedLine';
       channel: Channel; // Canal cuja linha conectada foi alterada
       instanceChannel?: ChannelInstance;
       application: string;
     }
   | {
-      type: "ChannelHangupRequest"; // Tipo do evento
+      type: 'ChannelHangupRequest'; // Tipo do evento
       cause: number; // Representação inteira da causa do hangup
       soft: boolean; // Indica se o hangup foi solicitado de forma "soft"
       channel: Channel; // Informações do canal onde o hangup foi solicitado
@@ -290,7 +291,7 @@ export type WebSocketEvent =
       application: string;
     }
   | {
-      type: "PeerStatusChange";
+      type: 'PeerStatusChange';
       peer: string; // Nome do peer
       peer_status: string; // Novo status do peer
       application: string;

@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { Endpoint, EndpointDetails } from "../interfaces/endpoints.types";
+import type { BaseClient } from '../baseClient.js';
+import type { Endpoint, EndpointDetails } from '../interfaces/endpoints.types';
 
 export class Endpoints {
   constructor(private client: BaseClient) {}
@@ -11,10 +11,10 @@ export class Endpoints {
    * @throws {Error} If the API response is not an array.
    */
   async list(): Promise<Endpoint[]> {
-    const endpoints = await this.client.get<unknown>("/endpoints");
+    const endpoints = await this.client.get<unknown>('/endpoints');
 
     if (!Array.isArray(endpoints)) {
-      throw new Error("Resposta da API /endpoints não é um array.");
+      throw new Error('Resposta da API /endpoints não é um array.');
     }
 
     return endpoints as Endpoint[];
@@ -29,10 +29,10 @@ export class Endpoints {
    */
   async getDetails(
     technology: string,
-    resource: string,
+    resource: string
   ): Promise<EndpointDetails> {
     return this.client.get<EndpointDetails>(
-      `/endpoints/${technology}/${resource}`,
+      `/endpoints/${technology}/${resource}`
     );
   }
 
@@ -47,11 +47,11 @@ export class Endpoints {
   async sendMessage(
     technology: string,
     resource: string,
-    message: Record<string, unknown>,
+    message: Record<string, unknown>
   ): Promise<void> {
     await this.client.post<void>(
       `/endpoints/${technology}/${resource}/sendMessage`,
-      message,
+      message
     );
   }
 }

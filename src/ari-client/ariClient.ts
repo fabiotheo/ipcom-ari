@@ -1,21 +1,22 @@
-import { BaseClient } from "./baseClient.js";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { BaseClient } from './baseClient.js';
 import type {
   AriClientConfig,
   WebSocketEvent,
   WebSocketEventType,
-} from "./interfaces";
+} from './interfaces';
 import type {
   TypedWebSocketEventListener,
   WebSocketEventListener,
-} from "./interfaces/websocket.types";
-import { Applications } from "./resources/applications.js";
-import { Asterisk } from "./resources/asterisk";
-import { type BridgeInstance, Bridges } from "./resources/bridges";
-import { type ChannelInstance, Channels } from "./resources/channels.js";
-import { Endpoints } from "./resources/endpoints";
-import { type PlaybackInstance, Playbacks } from "./resources/playbacks";
-import { Sounds } from "./resources/sounds";
-import { WebSocketClient } from "./websocketClient.js";
+} from './interfaces/websocket.types';
+import { Applications } from './resources/applications.js';
+import { Asterisk } from './resources/asterisk';
+import { type BridgeInstance, Bridges } from './resources/bridges';
+import { type ChannelInstance, Channels } from './resources/channels.js';
+import { Endpoints } from './resources/endpoints';
+import { type PlaybackInstance, Playbacks } from './resources/playbacks';
+import { Sounds } from './resources/sounds';
+import { WebSocketClient } from './websocketClient.js';
 
 /**
  * Main client class for interacting with the Asterisk REST Interface (ARI).
@@ -52,12 +53,12 @@ export class AriClient {
    */
   constructor(private readonly config: AriClientConfig) {
     if (!config.host || !config.port || !config.username || !config.password) {
-      throw new Error("Missing required configuration parameters");
+      throw new Error('Missing required configuration parameters');
     }
 
     // Normalize host and create base URL
-    const httpProtocol = config.secure ? "https" : "http";
-    const normalizedHost = config.host.replace(/^https?:\/\//, "");
+    const httpProtocol = config.secure ? 'https' : 'http';
+    const normalizedHost = config.host.replace(/^https?:\/\//, '');
     const baseUrl = `${httpProtocol}://${normalizedHost}:${config.port}/ari`;
 
     // Initialize base client and resources
@@ -77,7 +78,7 @@ export class AriClient {
 
   public async cleanup(): Promise<void> {
     try {
-      console.log("Starting ARI Client cleanup...");
+      console.log('Starting ARI Client cleanup...');
 
       // Primeiro limpa o WebSocket para evitar novos eventos
       if (this.webSocketClient) {
@@ -91,7 +92,7 @@ export class AriClient {
           try {
             this.channels.cleanup();
           } catch (error) {
-            console.error("Error cleaning up channels:", error);
+            console.error('Error cleaning up channels:', error);
           }
         })(),
         // Cleanup de playbacks
@@ -99,7 +100,7 @@ export class AriClient {
           try {
             this.playbacks.cleanup();
           } catch (error) {
-            console.error("Error cleaning up playbacks:", error);
+            console.error('Error cleaning up playbacks:', error);
           }
         })(),
         // Cleanup de bridges
@@ -107,7 +108,7 @@ export class AriClient {
           try {
             this.bridges.cleanup();
           } catch (error) {
-            console.error("Error cleaning up bridges:", error);
+            console.error('Error cleaning up bridges:', error);
           }
         })(),
       ]);
@@ -115,14 +116,14 @@ export class AriClient {
       // Limpar listeners do cliente ARI
       this.eventListeners.forEach((listeners, event) => {
         listeners.forEach((listener) => {
-          this.off(event as WebSocketEvent["type"], listener);
+          this.off(event as WebSocketEvent['type'], listener);
         });
       });
       this.eventListeners.clear();
 
-      console.log("ARI Client cleanup completed successfully");
+      console.log('ARI Client cleanup completed successfully');
     } catch (error) {
-      console.error("Error during ARI Client cleanup:", error);
+      console.error('Error during ARI Client cleanup:', error);
       throw error;
     }
   }
@@ -137,17 +138,17 @@ export class AriClient {
    */
   public async connectWebSocket(
     apps: string[],
-    subscribedEvents?: WebSocketEventType[],
+    subscribedEvents?: WebSocketEventType[]
   ): Promise<void> {
     try {
       if (!apps.length) {
-        throw new Error("At least one application name is required.");
+        throw new Error('At least one application name is required.');
       }
 
       // Se já existe uma conexão, apenas adicione novas aplicações sem fechar
       if (this.webSocketClient && this.webSocketClient.isConnected()) {
         console.log(
-          "WebSocket already connected. Reconnecting with updated apps...",
+          'WebSocket already connected. Reconnecting with updated apps...'
         );
         await this.webSocketClient.reconnectWithApps(apps, subscribedEvents);
         return;
@@ -158,12 +159,12 @@ export class AriClient {
         this.baseClient,
         apps,
         subscribedEvents,
-        this,
+        this
       );
 
       await this.webSocketClient.connect();
     } catch (error) {
-      console.error("Failed to establish WebSocket connection:", error);
+      console.error('Failed to establish WebSocket connection:', error);
       throw error;
     }
   }
@@ -178,11 +179,11 @@ export class AriClient {
    */
   public async addApplicationsToWebSocket(
     apps: string[],
-    subscribedEvents?: WebSocketEventType[],
+    subscribedEvents?: WebSocketEventType[]
   ): Promise<void> {
     if (!this.webSocketClient || !this.webSocketClient.isConnected()) {
       throw new Error(
-        "No active WebSocket connection. Create one first with connectWebSocket().",
+        'No active WebSocket connection. Create one first with connectWebSocket().'
       );
     }
 
@@ -198,7 +199,7 @@ export class AriClient {
    */
   public async destroy(): Promise<void> {
     try {
-      console.log("Destroying ARI Client...");
+      console.log('Destroying ARI Client...');
 
       // Cleanup de todos os recursos
       await this.cleanup();
@@ -215,9 +216,9 @@ export class AriClient {
       (this.sounds as any) = null;
       (this.asterisk as any) = null;
 
-      console.log("ARI Client destroyed successfully");
+      console.log('ARI Client destroyed successfully');
     } catch (error) {
-      console.error("Error destroying ARI Client:", error);
+      console.error('Error destroying ARI Client:', error);
       throw error;
     }
   }
@@ -236,12 +237,12 @@ export class AriClient {
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
-  public on<T extends WebSocketEvent["type"]>(
+  public on<T extends WebSocketEvent['type']>(
     event: T,
-    listener: TypedWebSocketEventListener<T>,
+    listener: TypedWebSocketEventListener<T>
   ): void {
     if (!this.webSocketClient) {
-      throw new Error("WebSocket is not connected");
+      throw new Error('WebSocket is not connected');
     }
 
     // 🔹 Verifica se o listener já está registrado para evitar duplicação
@@ -268,19 +269,19 @@ export class AriClient {
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
-  public once<T extends WebSocketEvent["type"]>(
+  public once<T extends WebSocketEvent['type']>(
     event: T,
-    listener: TypedWebSocketEventListener<T>,
+    listener: TypedWebSocketEventListener<T>
   ): void {
     if (!this.webSocketClient) {
-      throw new Error("WebSocket is not connected");
+      throw new Error('WebSocket is not connected');
     }
 
     // 🔹 Check if an identical listener already exists to avoid duplication
     const existingListeners = this.eventListeners.get(event) || [];
     if (existingListeners.includes(listener as WebSocketEventListener)) {
       console.warn(
-        `One-time listener already registered for event ${event}, reusing.`,
+        `One-time listener already registered for event ${event}, reusing.`
       );
       return;
     }
@@ -305,12 +306,12 @@ export class AriClient {
    * @param {T} event - The event type to remove listener for
    * @param {Function} listener - The listener function to remove
    */
-  public off<T extends WebSocketEvent["type"]>(
+  public off<T extends WebSocketEvent['type']>(
     event: T,
-    listener: TypedWebSocketEventListener<T>,
+    listener: TypedWebSocketEventListener<T>
   ): void {
     if (!this.webSocketClient) {
-      console.warn("No WebSocket connection to remove listener from");
+      console.warn('No WebSocket connection to remove listener from');
       return;
     }
 
@@ -319,8 +320,8 @@ export class AriClient {
     this.eventListeners.set(
       event,
       existingListeners.filter(
-        (l) => l !== (listener as WebSocketEventListener),
-      ),
+        (l) => l !== (listener as WebSocketEventListener)
+      )
     );
 
     console.log(`Event listener removed for ${event}`);
@@ -332,12 +333,12 @@ export class AriClient {
   public closeWebSocket(): Promise<void> {
     return new Promise((resolve) => {
       if (!this.webSocketClient) {
-        console.warn("No WebSocket connection to close");
+        console.warn('No WebSocket connection to close');
         resolve();
         return;
       }
 
-      console.log("Closing WebSocket connection and cleaning up listeners.");
+      console.log('Closing WebSocket connection and cleaning up listeners.');
 
       const closeTimeout = setTimeout(() => {
         if (this.webSocketClient) {
@@ -350,17 +351,17 @@ export class AriClient {
       this.eventListeners.forEach((listeners, event) => {
         listeners.forEach((listener) => {
           this.webSocketClient?.off(
-            event as WebSocketEvent["type"],
-            listener as (...args: any[]) => void,
+            event as WebSocketEvent['type'],
+            listener as (...args: any[]) => void
           );
         });
       });
       this.eventListeners.clear();
 
-      this.webSocketClient.once("close", () => {
+      this.webSocketClient.once('close', () => {
         clearTimeout(closeTimeout);
         this.webSocketClient = undefined;
-        console.log("WebSocket connection closed");
+        console.log('WebSocket connection closed');
         resolve();
       });
 
@@ -372,7 +373,7 @@ export class AriClient {
           resolve();
         })
         .catch((error) => {
-          console.error("Error during WebSocket close:", error);
+          console.error('Error during WebSocket close:', error);
           clearTimeout(closeTimeout);
           this.webSocketClient = undefined;
           resolve();

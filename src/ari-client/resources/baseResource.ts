@@ -1,5 +1,6 @@
-import { EventEmitter } from "events";
-import type { AriClient } from "../ariClient"; // Referência ao seu AriClient
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { EventEmitter } from 'events';
+import type { AriClient } from '../ariClient'; // Referência ao seu AriClient
 
 export abstract class BaseResource {
   protected readonly client: AriClient;
@@ -32,7 +33,7 @@ export abstract class BaseResource {
     }
 
     console.log({
-      baseEvent: "on",
+      baseEvent: 'on',
       event,
       name: eventKey,
     });
@@ -53,12 +54,12 @@ export abstract class BaseResource {
    */
   public removeListener<T extends string>(
     event: T,
-    callback: (data: any) => void,
+    callback: (data: any) => void
   ): void {
     const eventKey = `${event}-${this.resourceId}`;
 
     console.log({
-      baseEvent: "removeListener - baseResources",
+      baseEvent: 'removeListener - baseResources',
       event,
       name: eventKey,
     });
@@ -69,7 +70,7 @@ export abstract class BaseResource {
     const storedListeners = this.listenersMap.get(eventKey) || [];
     this.listenersMap.set(
       eventKey,
-      storedListeners.filter((l) => l !== callback),
+      storedListeners.filter((l) => l !== callback)
     );
   }
 
@@ -81,7 +82,7 @@ export abstract class BaseResource {
     const eventKey = `${event}-${this.resourceId}`;
 
     console.log({
-      baseEvent: "removeAllListeners",
+      baseEvent: 'removeAllListeners',
       event,
       name: eventKey,
     });
@@ -116,13 +117,13 @@ export abstract class BaseResource {
 
     if (!this.emitter.listenerCount(eventKey)) {
       console.warn(
-        `No listeners registered for event ${eventKey}, skipping emit.`,
+        `No listeners registered for event ${eventKey}, skipping emit.`
       );
       return;
     }
 
     console.log({
-      baseEvent: "emit - baseResources",
+      baseEvent: 'emit - baseResources',
       event,
       name: eventKey,
     });

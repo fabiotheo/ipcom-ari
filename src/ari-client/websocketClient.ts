@@ -1,9 +1,9 @@
-import { EventEmitter } from "events";
-import { type IBackOffOptions, backOff } from "exponential-backoff";
-import WebSocket from "ws";
-import type { AriClient } from "./ariClient";
-import type { BaseClient } from "./baseClient.js";
-import type { WebSocketEvent, WebSocketEventType } from "./interfaces";
+import { EventEmitter } from 'events';
+import { type IBackOffOptions, backOff } from 'exponential-backoff';
+import WebSocket from 'ws';
+import type { AriClient } from './ariClient';
+import type { BaseClient } from './baseClient.js';
+import type { WebSocketEvent, WebSocketEventType } from './interfaces';
 
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 30;
 const DEFAULT_STARTING_DELAY = 500;
@@ -20,7 +20,7 @@ export class WebSocketClient extends EventEmitter {
   private shouldReconnect = true; // 🔹 Nova flag para impedir reconexão se for um fechamento intencional
   private readonly maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
   private reconnectionAttempts = 0;
-  private lastWsUrl: string = "";
+  private lastWsUrl: string = '';
   private eventQueue: Map<string, NodeJS.Timeout> = new Map();
 
   /**
@@ -66,7 +66,7 @@ export class WebSocketClient extends EventEmitter {
       }
     }, 30000);
 
-    this.ws!.once("close", () => clearInterval(interval));
+    this.ws!.once('close', () => clearInterval(interval));
   }
 
   private readonly backOffOptions: IBackOffOptions = {
@@ -74,12 +74,12 @@ export class WebSocketClient extends EventEmitter {
     startingDelay: DEFAULT_STARTING_DELAY,
     maxDelay: DEFAULT_MAX_DELAY,
     timeMultiple: 2,
-    jitter: "full",
+    jitter: 'full',
     delayFirstAttempt: false,
     retry: (error: Error, attemptNumber: number) => {
       console.warn(
         `Connection attempt #${attemptNumber} failed:`,
-        error.message || "Unknown error",
+        error.message || 'Unknown error'
       );
       return attemptNumber < this.maxReconnectAttempts;
     },
@@ -102,12 +102,12 @@ export class WebSocketClient extends EventEmitter {
     private readonly baseClient: BaseClient,
     private apps: string[],
     private subscribedEvents?: WebSocketEventType[],
-    private readonly ariClient?: AriClient,
+    private readonly ariClient?: AriClient
   ) {
     super();
 
     if (!apps.length) {
-      throw new Error("At least one application name is required");
+      throw new Error('At least one application name is required');
     }
   }
 
@@ -124,7 +124,7 @@ export class WebSocketClient extends EventEmitter {
   public async connect(): Promise<void> {
     if (this.isConnecting || this.isConnected()) {
       console.warn(
-        "WebSocket is already connecting or connected. Skipping new connection.",
+        'WebSocket is already connecting or connected. Skipping new connection.'
       );
       return;
     }
@@ -133,15 +133,15 @@ export class WebSocketClient extends EventEmitter {
     this.isConnecting = true;
     const { baseUrl, username, password } = this.baseClient.getCredentials();
 
-    const protocol = baseUrl.startsWith("https") ? "wss" : "ws";
+    const protocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
     const normalizedHost = baseUrl
-      .replace(/^https?:\/\//, "")
-      .replace(/\/ari$/, "");
+      .replace(/^https?:\/\//, '')
+      .replace(/\/ari$/, '');
 
     const queryParams = new URLSearchParams();
-    queryParams.append("app", this.apps.join(","));
+    queryParams.append('app', this.apps.join(','));
     this.subscribedEvents?.forEach((event) =>
-      queryParams.append("event", event),
+      queryParams.append('event', event)
     );
 
     this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
@@ -162,10 +162,10 @@ export class WebSocketClient extends EventEmitter {
    */
   public async reconnectWithApps(
     newApps: string[],
-    subscribedEvents?: WebSocketEventType[],
+    subscribedEvents?: WebSocketEventType[]
   ): Promise<void> {
     if (!newApps.length) {
-      throw new Error("At least one application name is required");
+      throw new Error('At least one application name is required');
     }
 
     // Mesclar aplicações existentes com novas
@@ -177,13 +177,13 @@ export class WebSocketClient extends EventEmitter {
       uniqueApps.every((app) => this.apps.includes(app))
     ) {
       console.log(
-        "No changes in applications list, maintaining current connection",
+        'No changes in applications list, maintaining current connection'
       );
       return;
     }
 
     console.log(
-      `Reconnecting WebSocket with updated applications: ${uniqueApps.join(", ")}`,
+      `Reconnecting WebSocket with updated applications: ${uniqueApps.join(', ')}`
     );
 
     // Armazenar os aplicativos atualizados
@@ -197,14 +197,14 @@ export class WebSocketClient extends EventEmitter {
     // Fechar conexão existente
     if (this.ws) {
       await new Promise<void>((resolve) => {
-        this.once("disconnected", () => resolve());
+        this.once('disconnected', () => resolve());
         this.close();
       });
     }
 
     // Reconectar com apps atualizados
     await this.connect();
-    console.log("WebSocket reconnected successfully with updated applications");
+    console.log('WebSocket reconnected successfully with updated applications');
   }
 
   /**
@@ -216,17 +216,17 @@ export class WebSocketClient extends EventEmitter {
    */
   public async addApps(
     newApps: string[],
-    subscribedEvents?: WebSocketEventType[],
+    subscribedEvents?: WebSocketEventType[]
   ): Promise<void> {
     if (!newApps.length) {
-      throw new Error("At least one application name is required");
+      throw new Error('At least one application name is required');
     }
 
     // Verificar se há novas aplicações que ainda não estão na lista
     const appsToAdd = newApps.filter((app) => !this.apps.includes(app));
 
     if (appsToAdd.length === 0) {
-      console.log("All applications are already registered");
+      console.log('All applications are already registered');
       return;
     }
 
@@ -255,35 +255,35 @@ export class WebSocketClient extends EventEmitter {
         try {
           this.ws = new WebSocket(wsUrl);
 
-          this.ws.once("open", () => {
+          this.ws.once('open', () => {
             this.setupHeartbeat();
             if (this.isReconnecting) {
-              this.emit("reconnected", {
+              this.emit('reconnected', {
                 apps: this.apps,
                 subscribedEvents: this.subscribedEvents,
               });
             }
             this.isReconnecting = false;
             this.reconnectionAttempts = 0;
-            this.emit("connected");
+            this.emit('connected');
             resolve();
           });
 
-          this.ws.on("message", (data) => this.handleMessage(data.toString()));
+          this.ws.on('message', (data) => this.handleMessage(data.toString()));
 
-          this.ws.once("close", (code) => {
+          this.ws.once('close', (code) => {
             // 🔹 Usa `once` para evitar handlers duplicados
             console.warn(
-              `WebSocket disconnected with code ${code}. Attempting to reconnect...`,
+              `WebSocket disconnected with code ${code}. Attempting to reconnect...`
             );
             if (!this.isReconnecting) {
               this.reconnect(this.lastWsUrl);
             }
           });
 
-          this.ws.once("error", (err: Error) => {
+          this.ws.once('error', (err: Error) => {
             // 🔹 Usa `once` para evitar acúmulo de eventos
-            console.error("WebSocket error:", err.message);
+            console.error('WebSocket error:', err.message);
             if (!this.isReconnecting) {
               this.reconnect(this.lastWsUrl);
             }
@@ -299,10 +299,10 @@ export class WebSocketClient extends EventEmitter {
   private getEventKey(event: WebSocketEvent): string {
     // Cria uma chave única baseada no tipo de evento e IDs relevantes
     const ids = [];
-    if ("channel" in event && event.channel?.id) ids.push(event.channel.id);
-    if ("playback" in event && event.playback?.id) ids.push(event.playback.id);
-    if ("bridge" in event && event.bridge?.id) ids.push(event.bridge.id);
-    return `${event.type}-${ids.join("-")}`;
+    if ('channel' in event && event.channel?.id) ids.push(event.channel.id);
+    if ('playback' in event && event.playback?.id) ids.push(event.playback.id);
+    if ('bridge' in event && event.bridge?.id) ids.push(event.bridge.id);
+    return `${event.type}-${ids.join('-')}`;
   }
 
   private processEvent(event: WebSocketEvent): void {
@@ -313,19 +313,19 @@ export class WebSocketClient extends EventEmitter {
       return;
     }
 
-    if ("channel" in event && event.channel?.id && this.ariClient) {
+    if ('channel' in event && event.channel?.id && this.ariClient) {
       const instanceChannel = this.ariClient.Channel(event.channel.id);
       instanceChannel.emitEvent(event);
       event.instanceChannel = instanceChannel;
     }
 
-    if ("playback" in event && event.playback?.id && this.ariClient) {
+    if ('playback' in event && event.playback?.id && this.ariClient) {
       const instancePlayback = this.ariClient.Playback(event.playback.id);
       instancePlayback.emitEvent(event);
       event.instancePlayback = instancePlayback;
     }
 
-    if ("bridge" in event && event.bridge?.id && this.ariClient) {
+    if ('bridge' in event && event.bridge?.id && this.ariClient) {
       const instanceBridge = this.ariClient.Bridge(event.bridge.id);
       instanceBridge.emitEvent(event);
       event.instanceBridge = instanceBridge;
@@ -362,11 +362,11 @@ export class WebSocketClient extends EventEmitter {
         setTimeout(() => {
           this.processEvent(event);
           this.eventQueue.delete(key);
-        }, 100),
+        }, 100)
       );
     } catch (error) {
-      console.error("Error processing WebSocket message:", error);
-      this.emit("error", new Error("Failed to decode WebSocket message"));
+      console.error('Error processing WebSocket message:', error);
+      this.emit('error', new Error('Failed to decode WebSocket message'));
     }
   }
 
@@ -385,13 +385,13 @@ export class WebSocketClient extends EventEmitter {
   private async reconnect(wsUrl: string): Promise<void> {
     if (!this.shouldReconnect) {
       console.warn(
-        "Reconnection skipped because WebSocket was intentionally closed.",
+        'Reconnection skipped because WebSocket was intentionally closed.'
       );
       return;
     }
 
     if (this.isReconnecting) {
-      console.warn("Já há uma tentativa de reconexão em andamento.");
+      console.warn('Já há uma tentativa de reconexão em andamento.');
       return;
     }
 
@@ -402,7 +402,7 @@ export class WebSocketClient extends EventEmitter {
     backOff(() => this.initializeWebSocket(wsUrl), this.backOffOptions)
       .catch((error) => {
         console.error(`Falha ao reconectar: ${error.message}`);
-        this.emit("reconnectFailed", error);
+        this.emit('reconnectFailed', error);
       })
       .finally(() => {
         this.isReconnecting = false;
@@ -420,11 +420,11 @@ export class WebSocketClient extends EventEmitter {
    */
   public async close(): Promise<void> {
     if (!this.ws) {
-      console.warn("No WebSocket connection to close");
+      console.warn('No WebSocket connection to close');
       return;
     }
 
-    console.log("Closing WebSocket connection.");
+    console.log('Closing WebSocket connection.');
     this.shouldReconnect = false;
 
     // Limpar event queue
@@ -440,17 +440,17 @@ export class WebSocketClient extends EventEmitter {
     try {
       this.ws.removeAllListeners();
       await new Promise<void>((resolve) => {
-        this.ws!.once("close", () => {
+        this.ws!.once('close', () => {
           clearTimeout(closeTimeout);
           resolve();
         });
         this.ws!.close();
       });
     } catch (error) {
-      console.error("Error closing WebSocket:", error);
+      console.error('Error closing WebSocket:', error);
     } finally {
       this.ws = undefined;
-      this.emit("disconnected");
+      this.emit('disconnected');
     }
   }
 
@@ -510,7 +510,7 @@ export class WebSocketClient extends EventEmitter {
     this.isReconnecting = false;
 
     // Limpar URL armazenada
-    this.lastWsUrl = "";
+    this.lastWsUrl = '';
 
     // Resetar contadores
     this.reconnectionAttempts = 0;

@@ -1,4 +1,4 @@
-import type { WebSocketEvent } from "./events.types";
+import type { WebSocketEvent } from './events.types';
 
 export interface Application {
   name: string;
@@ -6,5 +6,5 @@ export interface Application {
 }
 
 export interface ApplicationDetails extends Application {
-  subscribedEvents?: WebSocketEvent["type"][]; // Lista de eventos específicos
+  subscribedEvents?: WebSocketEvent['type'][]; // Lista de eventos específicos
 }

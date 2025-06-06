@@ -1,7 +1,7 @@
-import { EventEmitter } from "events";
-import { isAxiosError } from "axios";
-import type { AriClient } from "../ariClient";
-import type { BaseClient } from "../baseClient.js";
+import { EventEmitter } from 'events';
+import { isAxiosError } from 'axios';
+import type { AriClient } from '../ariClient';
+import type { BaseClient } from '../baseClient.js';
 import type {
   AddChannelRequest,
   Bridge,
@@ -10,9 +10,9 @@ import type {
   PlayMediaRequest,
   RemoveChannelRequest,
   WebSocketEvent,
-} from "../interfaces";
-import { bridgeEvents } from "../interfaces/events.types";
-import { toQueryParams } from "../utils";
+} from '../interfaces';
+import { bridgeEvents } from '../interfaces/events.types';
+import { toQueryParams } from '../utils';
 
 /**
  * Extracts an error message from various error types.
@@ -34,13 +34,13 @@ const getErrorMessage = (error: unknown): string => {
     return (
       error.response?.data?.message ||
       error.message ||
-      "Um erro do axios ocorreu"
+      'Um erro do axios ocorreu'
     );
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "Um erro desconhecido ocorreu";
+  return 'Um erro desconhecido ocorreu';
 };
 
 /**
@@ -66,7 +66,7 @@ export class BridgeInstance {
   constructor(
     private readonly client: AriClient,
     private readonly baseClient: BaseClient,
-    bridgeId?: string,
+    bridgeId?: string
   ) {
     this.id = bridgeId || `bridge-${Date.now()}`;
   }
@@ -94,25 +94,25 @@ export class BridgeInstance {
    * @param event
    * @param listener
    */
-  on<T extends WebSocketEvent["type"]>(
+  on<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     // 🔹 Verifica se o listener já está registrado
     const existingListeners = this.listenersMap.get(event) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `Listener já registrado para evento ${event}, reutilizando.`,
+        `Listener já registrado para evento ${event}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("bridge" in data && data.bridge?.id === this.id) {
+      if ('bridge' in data && data.bridge?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
@@ -134,12 +134,12 @@ export class BridgeInstance {
    * @param event - The type of event to listen for.
    * @param listener - The callback function to be called when the event occurs.
    */
-  once<T extends WebSocketEvent["type"]>(
+  once<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     const eventKey = `${event}-${this.id}`;
@@ -148,13 +148,13 @@ export class BridgeInstance {
     const existingListeners = this.listenersMap.get(eventKey) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("bridge" in data && data.bridge?.id === this.id) {
+      if ('bridge' in data && data.bridge?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
 
         // 🔹 Remove automaticamente o listener após a primeira execução
@@ -179,12 +179,12 @@ export class BridgeInstance {
    * @param event - The type of event to remove listeners for.
    * @param listener - Optional. The specific listener to remove. If not provided, all listeners for the event will be removed.
    */
-  off<T extends WebSocketEvent["type"]>(
+  off<T extends WebSocketEvent['type']>(
     event: T,
-    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     if (listener) {
@@ -192,7 +192,7 @@ export class BridgeInstance {
       const storedListeners = this.listenersMap.get(event) || [];
       this.listenersMap.set(
         event,
-        storedListeners.filter((l) => l !== listener),
+        storedListeners.filter((l) => l !== listener)
       );
     } else {
       this.eventEmitter.removeAllListeners(event);
@@ -223,11 +223,11 @@ export class BridgeInstance {
    */
   emitEvent(event: WebSocketEvent): void {
     if (!event) {
-      console.warn("Invalid event received");
+      console.warn('Invalid event received');
       return;
     }
 
-    if ("bridge" in event && event.bridge?.id === this.id) {
+    if ('bridge' in event && event.bridge?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
     }
   }
@@ -241,7 +241,7 @@ export class BridgeInstance {
       listeners.forEach((listener) => {
         this.eventEmitter.off(
           event as string,
-          listener as (...args: any[]) => void,
+          listener as (...args: any[]) => void
         );
       });
     });
@@ -259,11 +259,11 @@ export class BridgeInstance {
   async get(): Promise<Bridge> {
     try {
       if (!this.id) {
-        throw new Error("No bridge associated with this instance");
+        throw new Error('No bridge associated with this instance');
       }
 
       this.bridgeData = await this.baseClient.get<Bridge>(
-        `/bridges/${this.id}`,
+        `/bridges/${this.id}`
       );
       return this.bridgeData;
     } catch (error: unknown) {
@@ -283,13 +283,13 @@ export class BridgeInstance {
     try {
       const queryParams = toQueryParams({
         channel: Array.isArray(request.channel)
-          ? request.channel.join(",")
+          ? request.channel.join(',')
           : request.channel,
         ...(request.role && { role: request.role }),
       });
 
       await this.baseClient.post<void>(
-        `/bridges/${this.id}/addChannel?${queryParams}`,
+        `/bridges/${this.id}/addChannel?${queryParams}`
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -308,12 +308,12 @@ export class BridgeInstance {
     try {
       const queryParams = toQueryParams({
         channel: Array.isArray(request.channel)
-          ? request.channel.join(",")
+          ? request.channel.join(',')
           : request.channel,
       });
 
       await this.baseClient.post<void>(
-        `/bridges/${this.id}/removeChannel?${queryParams}`,
+        `/bridges/${this.id}/removeChannel?${queryParams}`
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -340,7 +340,7 @@ export class BridgeInstance {
 
       const result = await this.baseClient.post<BridgePlayback>(
         `/bridges/${this.id}/play?${queryParams}`,
-        { media: request.media },
+        { media: request.media }
       );
 
       return result;
@@ -360,7 +360,7 @@ export class BridgeInstance {
   async stopPlayback(playbackId: string): Promise<void> {
     try {
       await this.baseClient.delete<void>(
-        `/bridges/${this.id}/play/${playbackId}`,
+        `/bridges/${this.id}/play/${playbackId}`
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
@@ -378,13 +378,13 @@ export class BridgeInstance {
   async setVideoSource(channelId: string): Promise<void> {
     try {
       await this.baseClient.post<void>(
-        `/bridges/${this.id}/videoSource/${channelId}`,
+        `/bridges/${this.id}/videoSource/${channelId}`
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(
         `Error setting video source for bridge ${this.id}:`,
-        message,
+        message
       );
       throw new Error(`Failed to set video source: ${message}`);
     }
@@ -402,7 +402,7 @@ export class BridgeInstance {
       const message = getErrorMessage(error);
       console.error(
         `Error removing video source from bridge ${this.id}:`,
-        message,
+        message
       );
       throw new Error(`Failed to remove video source: ${message}`);
     }
@@ -432,7 +432,7 @@ export class Bridges {
   private eventQueue = new Map<string, NodeJS.Timeout>();
   constructor(
     private readonly baseClient: BaseClient,
-    private readonly client: AriClient,
+    private readonly client: AriClient
   ) {}
   /**
    * Creates or retrieves a Bridge instance.
@@ -494,7 +494,7 @@ export class Bridges {
 
     // Garantir que o map está vazio
     this.bridgeInstances.clear();
-    console.log("All bridge instances have been removed and cleaned up");
+    console.log('All bridge instances have been removed and cleaned up');
   }
 
   /**
@@ -509,7 +509,7 @@ export class Bridges {
    */
   public removeBridgeInstance(bridgeId: string): void {
     if (!bridgeId) {
-      throw new Error("Bridge ID is required");
+      throw new Error('Bridge ID is required');
     }
 
     const instance = this.bridgeInstances.get(bridgeId);
@@ -546,8 +546,8 @@ export class Bridges {
    * - If no matching bridge instance is found, a warning is logged.
    */
   public propagateEventToBridge(event: WebSocketEvent): void {
-    if (!event || !("bridge" in event) || !event.bridge?.id) {
-      console.warn("Invalid WebSocket event received");
+    if (!event || !('bridge' in event) || !event.bridge?.id) {
+      console.warn('Invalid WebSocket event received');
       return;
     }
 
@@ -565,11 +565,11 @@ export class Bridges {
           instance.emitEvent(event);
         } else {
           console.warn(
-            `No instance found for bridge ${event.bridge!.id}. Event ignored.`,
+            `No instance found for bridge ${event.bridge!.id}. Event ignored.`
           );
         }
         this.eventQueue.delete(key);
-      }, 100),
+      }, 100)
     );
   }
   /**
@@ -613,7 +613,7 @@ export class Bridges {
    * }
    */
   async list(): Promise<Bridge[]> {
-    return this.baseClient.get<Bridge[]>("/bridges");
+    return this.baseClient.get<Bridge[]>('/bridges');
   }
 
   /**
@@ -633,7 +633,7 @@ export class Bridges {
    * @throws Will throw an error if the bridge creation fails or if there's a network issue.
    */
   async createBridge(request: CreateBridgeRequest): Promise<Bridge> {
-    return this.baseClient.post<Bridge>("/bridges", request);
+    return this.baseClient.post<Bridge>('/bridges', request);
   }
 
   /**
@@ -695,17 +695,17 @@ export class Bridges {
    */
   async addChannels(
     bridgeId: string,
-    request: AddChannelRequest,
+    request: AddChannelRequest
   ): Promise<void> {
     const queryParams = toQueryParams({
       channel: Array.isArray(request.channel)
-        ? request.channel.join(",")
+        ? request.channel.join(',')
         : request.channel,
       ...(request.role && { role: request.role }),
     });
 
     await this.baseClient.post<void>(
-      `/bridges/${bridgeId}/addChannel?${queryParams}`,
+      `/bridges/${bridgeId}/addChannel?${queryParams}`
     );
   }
 
@@ -726,16 +726,16 @@ export class Bridges {
    */
   async removeChannels(
     bridgeId: string,
-    request: RemoveChannelRequest,
+    request: RemoveChannelRequest
   ): Promise<void> {
     const queryParams = toQueryParams({
       channel: Array.isArray(request.channel)
-        ? request.channel.join(",")
+        ? request.channel.join(',')
         : request.channel,
     });
 
     await this.baseClient.post<void>(
-      `/bridges/${bridgeId}/removeChannel?${queryParams}`,
+      `/bridges/${bridgeId}/removeChannel?${queryParams}`
     );
   }
 
@@ -759,7 +759,7 @@ export class Bridges {
    */
   async playMedia(
     bridgeId: string,
-    request: PlayMediaRequest,
+    request: PlayMediaRequest
   ): Promise<BridgePlayback> {
     const queryParams = toQueryParams({
       ...(request.lang && { lang: request.lang }),
@@ -770,7 +770,7 @@ export class Bridges {
 
     return this.baseClient.post<BridgePlayback>(
       `/bridges/${bridgeId}/play?${queryParams}`,
-      { media: request.media },
+      { media: request.media }
     );
   }
 
@@ -790,7 +790,7 @@ export class Bridges {
    */
   async stopPlayback(bridgeId: string, playbackId: string): Promise<void> {
     await this.baseClient.delete<void>(
-      `/bridges/${bridgeId}/play/${playbackId}`,
+      `/bridges/${bridgeId}/play/${playbackId}`
     );
   }
 
@@ -811,7 +811,7 @@ export class Bridges {
   async setVideoSource(bridgeId: string, channelId: string): Promise<void> {
     const queryParams = toQueryParams({ channelId });
     await this.baseClient.post<void>(
-      `/bridges/${bridgeId}/videoSource?${queryParams}`,
+      `/bridges/${bridgeId}/videoSource?${queryParams}`
     );
   }
 

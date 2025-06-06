@@ -2,17 +2,17 @@ export interface Channel {
   id: string;
   name: string;
   state:
-    | "Down"
-    | "Rsrved"
-    | "OffHook"
-    | "Dialing"
-    | "Ring"
-    | "Ringing"
-    | "Up"
-    | "Busy"
-    | "Dialing Offhook"
-    | "Pre-ring"
-    | "Unknown";
+    | 'Down'
+    | 'Rsrved'
+    | 'OffHook'
+    | 'Dialing'
+    | 'Ring'
+    | 'Ringing'
+    | 'Up'
+    | 'Busy'
+    | 'Dialing Offhook'
+    | 'Pre-ring'
+    | 'Unknown';
   caller: {
     number: string;
     name: string;
@@ -61,7 +61,7 @@ export interface ChannelPlayback {
   id: string;
   media_uri: string;
   target_uri: string;
-  state: "queued" | "playing" | "paused" | "done";
+  state: 'queued' | 'playing' | 'paused' | 'done';
 }
 
 export interface PlaybackOptions {
@@ -75,9 +75,9 @@ export interface RecordingOptions {
   format: string;
   maxDurationSeconds?: number;
   maxSilenceSeconds?: number;
-  ifExists?: "fail" | "overwrite" | "append";
+  ifExists?: 'fail' | 'overwrite' | 'append';
   beep?: boolean;
-  terminateOn?: "none" | "any" | "*" | "#";
+  terminateOn?: 'none' | 'any' | '*' | '#';
 }
 
 export interface SnoopOptions {

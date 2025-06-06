@@ -1,8 +1,9 @@
-import { EventEmitter } from "events";
-import { isAxiosError } from "axios";
-import { v4 as uuidv4 } from "uuid";
-import type { AriClient } from "../ariClient";
-import type { BaseClient } from "../baseClient.js";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { EventEmitter } from 'events';
+import { isAxiosError } from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import type { AriClient } from '../ariClient';
+import type { BaseClient } from '../baseClient.js';
 import type {
   Channel,
   ChannelPlayback,
@@ -14,9 +15,9 @@ import type {
   RecordingOptions,
   SnoopOptions,
   WebSocketEvent,
-} from "../interfaces";
-import { toQueryParams } from "../utils";
-import type { PlaybackInstance } from "./playbacks";
+} from '../interfaces';
+import { toQueryParams } from '../utils';
+import type { PlaybackInstance } from './playbacks';
 
 /**
  * Utility function to extract error message
@@ -26,13 +27,13 @@ const getErrorMessage = (error: unknown): string => {
     return (
       error.response?.data?.message ||
       error.message ||
-      "An axios error occurred"
+      'An axios error occurred'
     );
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "An unknown error occurred";
+  return 'An unknown error occurred';
 };
 
 /**
@@ -43,6 +44,7 @@ export class ChannelInstance {
   private channelData: Channel | null = null;
   private readonly listenersMap = new Map<
     string,
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
     ((...args: any[]) => void)[]
   >(); // 🔹 Guarda listeners para remoção posterior
   public readonly id: string;
@@ -50,7 +52,7 @@ export class ChannelInstance {
   constructor(
     private readonly client: AriClient,
     private readonly baseClient: BaseClient,
-    channelId?: string,
+    channelId?: string
   ) {
     this.id = channelId || `channel-${Date.now()}`;
   }
@@ -58,25 +60,25 @@ export class ChannelInstance {
   /**
    * Registers an event listener for specific channel events
    */
-  on<T extends WebSocketEvent["type"]>(
+  on<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     // 🔹 Verifica se o listener já está registrado para evitar duplicação
     const existingListeners = this.listenersMap.get(event) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `Listener já registrado para evento ${event}, reutilizando.`,
+        `Listener já registrado para evento ${event}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("channel" in data && data.channel?.id === this.id) {
+      if ('channel' in data && data.channel?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
       }
     };
@@ -95,12 +97,12 @@ export class ChannelInstance {
   /**
    * Registers a one-time event listener
    */
-  once<T extends WebSocketEvent["type"]>(
+  once<T extends WebSocketEvent['type']>(
     event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     const eventKey = `${event}-${this.id}`;
@@ -109,13 +111,13 @@ export class ChannelInstance {
     const existingListeners = this.listenersMap.get(eventKey) || [];
     if (existingListeners.includes(listener)) {
       console.warn(
-        `One-time listener já registrado para evento ${eventKey}, reutilizando.`,
+        `One-time listener já registrado para evento ${eventKey}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
-      if ("channel" in data && data.channel?.id === this.id) {
+      if ('channel' in data && data.channel?.id === this.id) {
         listener(data as Extract<WebSocketEvent, { type: T }>);
 
         // 🔹 Remove automaticamente o listener após a primeira execução
@@ -131,6 +133,7 @@ export class ChannelInstance {
     }
     this.listenersMap
       .get(eventKey)!
+      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
       .push(wrappedListener as (...args: any[]) => void);
   }
 
@@ -143,12 +146,12 @@ export class ChannelInstance {
    * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    * @throws {Error} If no event type is provided
    */
-  off<T extends WebSocketEvent["type"]>(
+  off<T extends WebSocketEvent['type']>(
     event: T,
-    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void,
+    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void
   ): void {
     if (!event) {
-      throw new Error("Event type is required");
+      throw new Error('Event type is required');
     }
 
     if (listener) {
@@ -156,7 +159,7 @@ export class ChannelInstance {
       const storedListeners = this.listenersMap.get(event) || [];
       this.listenersMap.set(
         event,
-        storedListeners.filter((l) => l !== listener),
+        storedListeners.filter((l) => l !== listener)
       );
     } else {
       this.eventEmitter.removeAllListeners(event);
@@ -185,11 +188,11 @@ export class ChannelInstance {
    */
   emitEvent(event: WebSocketEvent): void {
     if (!event) {
-      console.warn("Received invalid event");
+      console.warn('Received invalid event');
       return;
     }
 
-    if ("channel" in event && event.channel?.id === this.id) {
+    if ('channel' in event && event.channel?.id === this.id) {
       this.eventEmitter.emit(event.type, event);
     }
   }
@@ -207,7 +210,8 @@ export class ChannelInstance {
       listeners.forEach((listener) => {
         this.eventEmitter.off(
           event as string,
-          listener as (...args: any[]) => void,
+          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+          listener as (...args: any[]) => void
         );
       });
     });
@@ -238,13 +242,13 @@ export class ChannelInstance {
    */
   async originate(data: OriginateRequest): Promise<Channel> {
     if (this.channelData) {
-      throw new Error("Channel has already been created");
+      throw new Error('Channel has already been created');
     }
 
     try {
       this.channelData = await this.baseClient.post<Channel, OriginateRequest>(
-        "/channels",
-        data,
+        '/channels',
+        data
       );
       return this.channelData;
     } catch (error: unknown) {
@@ -253,7 +257,7 @@ export class ChannelInstance {
       throw new Error(`Failed to originate channel: ${message}`);
     }
   }
-  
+
   /**
    * Continues the execution of a dialplan for the current channel.
    *
@@ -267,13 +271,13 @@ export class ChannelInstance {
     context?: string,
     extension?: string,
     priority?: number,
-    label?: string,
+    label?: string
   ): Promise<void> {
     try {
       if (!this.channelData) {
         this.channelData = await this.getDetails();
       }
-      
+
       await this.baseClient.post<void>(`/channels/${this.id}/continue`, {
         context,
         extension,
@@ -282,11 +286,14 @@ export class ChannelInstance {
       });
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Error continuing dialplan for channel ${this.id}:`, message);
+      console.error(
+        `Error continuing dialplan for channel ${this.id}:`,
+        message
+      );
       throw new Error(`Failed to continue dialplan: ${message}`);
     }
   }
-  
+
   /**
    * Initiates a snoop operation on this channel with the provided options.
    * Snooping allows you to listen in or interact with an existing call.
@@ -300,7 +307,7 @@ export class ChannelInstance {
       if (!this.channelData) {
         this.channelData = await this.getDetails();
       }
-      
+
       const queryParams = toQueryParams(options);
       return await this.baseClient.post<Channel>(
         `/channels/${this.id}/snoop?${queryParams}`
@@ -311,7 +318,7 @@ export class ChannelInstance {
       throw new Error(`Failed to snoop channel: ${message}`);
     }
   }
-  
+
   /**
    * Initiates a snoop operation on this channel with a specific snoop ID.
    *
@@ -325,7 +332,7 @@ export class ChannelInstance {
       if (!this.channelData) {
         this.channelData = await this.getDetails();
       }
-      
+
       const queryParams = toQueryParams(options);
       return await this.baseClient.post<Channel>(
         `/channels/${this.id}/snoop/${snoopId}?${queryParams}`
@@ -342,10 +349,10 @@ export class ChannelInstance {
    */
   async play(
     options: { media: string; lang?: string },
-    playbackId?: string,
+    playbackId?: string
   ): Promise<PlaybackInstance> {
     if (!options.media) {
-      throw new Error("Media URL is required");
+      throw new Error('Media URL is required');
     }
 
     try {
@@ -356,7 +363,7 @@ export class ChannelInstance {
       const playback = this.client.Playback(playbackId || uuidv4());
       await this.baseClient.post<void>(
         `/channels/${this.id}/play/${playback.id}`,
-        options,
+        options
       );
 
       return playback;
@@ -377,11 +384,11 @@ export class ChannelInstance {
       }
 
       if (!this.id) {
-        throw new Error("No channel ID associated with this instance");
+        throw new Error('No channel ID associated with this instance');
       }
 
       const details = await this.baseClient.get<Channel>(
-        `/channels/${this.id}`,
+        `/channels/${this.id}`
       );
       this.channelData = details;
       return details;
@@ -389,7 +396,7 @@ export class ChannelInstance {
       const message = getErrorMessage(error);
       console.error(
         `Error retrieving channel details for ${this.id}:`,
-        message,
+        message
       );
       throw new Error(`Failed to get channel details: ${message}`);
     }
@@ -421,7 +428,7 @@ export class ChannelInstance {
       throw new Error("The 'variable' parameter is required.");
     }
     return this.baseClient.get<ChannelVar>(
-      `/channels/${this.id}/variable?variable=${encodeURIComponent(variable)}`,
+      `/channels/${this.id}/variable?variable=${encodeURIComponent(variable)}`
     );
   }
 
@@ -438,7 +445,7 @@ export class ChannelInstance {
     }
 
     if (!this.channelData?.id) {
-      throw new Error("Não foi possível inicializar o canal. ID inválido.");
+      throw new Error('Não foi possível inicializar o canal. ID inválido.');
     }
 
     await this.baseClient.delete(`/channels/${this.channelData.id}`);
@@ -454,19 +461,19 @@ export class ChannelInstance {
    */
   async playMedia(
     media: string,
-    options?: PlaybackOptions,
+    options?: PlaybackOptions
   ): Promise<ChannelPlayback> {
     if (!this.channelData) {
-      throw new Error("O canal ainda não foi criado.");
+      throw new Error('O canal ainda não foi criado.');
     }
 
     const queryParams = options
       ? `?${new URLSearchParams(options as Record<string, string>).toString()}`
-      : "";
+      : '';
 
     return this.baseClient.post<ChannelPlayback>(
       `/channels/${this.channelData.id}/play${queryParams}`,
-      { media },
+      { media }
     );
   }
 
@@ -479,11 +486,11 @@ export class ChannelInstance {
    */
   async stopPlayback(playbackId: string): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.delete<void>(
-      `/channels/${this.channelData.id}/play/${playbackId}`,
+      `/channels/${this.channelData.id}/play/${playbackId}`
     );
   }
 
@@ -496,11 +503,11 @@ export class ChannelInstance {
    */
   async pausePlayback(playbackId: string): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.post<void>(
-      `/channels/${this.channelData.id}/play/${playbackId}/pause`,
+      `/channels/${this.channelData.id}/play/${playbackId}/pause`
     );
   }
 
@@ -513,11 +520,11 @@ export class ChannelInstance {
    */
   async resumePlayback(playbackId: string): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.delete<void>(
-      `/channels/${this.channelData.id}/play/${playbackId}/pause`,
+      `/channels/${this.channelData.id}/play/${playbackId}/pause`
     );
   }
 
@@ -530,12 +537,12 @@ export class ChannelInstance {
    */
   async rewindPlayback(playbackId: string, skipMs: number): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.post<void>(
       `/channels/${this.channelData.id}/play/${playbackId}/rewind`,
-      { skipMs },
+      { skipMs }
     );
   }
 
@@ -549,12 +556,12 @@ export class ChannelInstance {
    */
   async fastForwardPlayback(playbackId: string, skipMs: number): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.post<void>(
       `/channels/${this.channelData.id}/play/${playbackId}/forward`,
-      { skipMs },
+      { skipMs }
     );
   }
 
@@ -565,13 +572,13 @@ export class ChannelInstance {
    * @return {Promise<void>} A promise that resolves when the channel is successfully muted.
    * @throws {Error} If the channel is not associated with this instance.
    */
-  async muteChannel(direction: "both" | "in" | "out" = "both"): Promise<void> {
+  async muteChannel(direction: 'both' | 'in' | 'out' = 'both'): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.post<void>(
-      `/channels/${this.channelData.id}/mute?direction=${direction}`,
+      `/channels/${this.channelData.id}/mute?direction=${direction}`
     );
   }
 
@@ -584,14 +591,14 @@ export class ChannelInstance {
    * @throws {Error} If the channel is not associated with the current instance.
    */
   async unmuteChannel(
-    direction: "both" | "in" | "out" = "both",
+    direction: 'both' | 'in' | 'out' = 'both'
   ): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.delete<void>(
-      `/channels/${this.channelData.id}/mute?direction=${direction}`,
+      `/channels/${this.channelData.id}/mute?direction=${direction}`
     );
   }
 
@@ -603,7 +610,7 @@ export class ChannelInstance {
    */
   async holdChannel(): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.post<void>(`/channels/${this.channelData.id}/hold`);
@@ -619,7 +626,7 @@ export class ChannelInstance {
    */
   async unholdChannel(): Promise<void> {
     if (!this.channelData?.id) {
-      throw new Error("Canal não associado a esta instância.");
+      throw new Error('Canal não associado a esta instância.');
     }
 
     await this.baseClient.delete<void>(`/channels/${this.channelData.id}/hold`);
@@ -636,7 +643,7 @@ export class Channels {
 
   constructor(
     private readonly baseClient: BaseClient,
-    private readonly client: AriClient,
+    private readonly client: AriClient
   ) {}
 
   /**
@@ -710,7 +717,7 @@ export class Channels {
 
     // Garantir que o map está vazio
     this.channelInstances.clear();
-    console.log("All channel instances have been removed and cleaned up");
+    console.log('All channel instances have been removed and cleaned up');
   }
 
   /**
@@ -723,7 +730,7 @@ export class Channels {
   async get(id: string): Promise<Channel> {
     try {
       if (!id) {
-        throw new Error("No channel ID associated with this instance");
+        throw new Error('No channel ID associated with this instance');
       }
 
       return await this.baseClient.get<Channel>(`/channels/${id}`);
@@ -739,7 +746,7 @@ export class Channels {
    */
   public removeChannelInstance(channelId: string): void {
     if (!channelId) {
-      throw new Error("Channel ID is required");
+      throw new Error('Channel ID is required');
     }
 
     const instance = this.channelInstances.get(channelId);
@@ -761,8 +768,8 @@ export class Channels {
    * Propagates a WebSocket event to a specific channel.
    */
   public propagateEventToChannel(event: WebSocketEvent): void {
-    if (!event || !("channel" in event) || !event.channel?.id) {
-      console.warn("Invalid WebSocket event received");
+    if (!event || !('channel' in event) || !event.channel?.id) {
+      console.warn('Invalid WebSocket event received');
       return;
     }
 
@@ -780,11 +787,11 @@ export class Channels {
           instance.emitEvent(event);
         } else {
           console.warn(
-            `No instance found for channel ${event.channel!.id}. Event ignored.`,
+            `No instance found for channel ${event.channel!.id}. Event ignored.`
           );
         }
         this.eventQueue.delete(key);
-      }, 100),
+      }, 100)
     );
   }
 
@@ -793,11 +800,11 @@ export class Channels {
    */
   async originate(data: OriginateRequest): Promise<Channel> {
     if (!data.endpoint) {
-      throw new Error("Endpoint is required for channel origination");
+      throw new Error('Endpoint is required for channel origination');
     }
 
     try {
-      return await this.baseClient.post<Channel>("/channels", data);
+      return await this.baseClient.post<Channel>('/channels', data);
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       console.error(`Error originating channel:`, message);
@@ -810,9 +817,9 @@ export class Channels {
    */
   async list(): Promise<Channel[]> {
     try {
-      const channels = await this.baseClient.get<unknown>("/channels");
+      const channels = await this.baseClient.get<unknown>('/channels');
       if (!Array.isArray(channels)) {
-        throw new Error("API response for /channels is not an array");
+        throw new Error('API response for /channels is not an array');
       }
       return channels as Channel[];
     } catch (error: unknown) {
@@ -854,7 +861,7 @@ export class Channels {
    */
   async hangup(
     channelId: string,
-    options?: { reason_code?: string; reason?: string },
+    options?: { reason_code?: string; reason?: string }
   ): Promise<void> {
     const queryParams = new URLSearchParams({
       ...(options?.reason_code && { reason_code: options.reason_code }),
@@ -862,7 +869,7 @@ export class Channels {
     });
 
     return this.baseClient.delete<void>(
-      `/channels/${channelId}?${queryParams.toString()}`,
+      `/channels/${channelId}?${queryParams.toString()}`
     );
   }
 
@@ -875,11 +882,11 @@ export class Channels {
    */
   async snoopChannel(
     channelId: string,
-    options: SnoopOptions,
+    options: SnoopOptions
   ): Promise<Channel> {
     const queryParams = toQueryParams(options);
     return this.baseClient.post<Channel>(
-      `/channels/${channelId}/snoop?${queryParams}`,
+      `/channels/${channelId}/snoop?${queryParams}`
     );
   }
 
@@ -911,7 +918,7 @@ export class Channels {
    */
   async getRTPStatistics(channelId: string): Promise<RTPStats> {
     return this.baseClient.get<RTPStats>(
-      `/channels/${channelId}/rtp_statistics`,
+      `/channels/${channelId}/rtp_statistics`
     );
   }
 
@@ -924,7 +931,7 @@ export class Channels {
   async createExternalMedia(options: ExternalMediaOptions): Promise<Channel> {
     const queryParams = toQueryParams(options);
     return this.baseClient.post<Channel>(
-      `/channels/externalMedia?${queryParams}`,
+      `/channels/externalMedia?${queryParams}`
     );
   }
 
@@ -941,12 +948,12 @@ export class Channels {
     channelId: string,
     playbackId: string,
     media: string,
-    options?: PlaybackOptions,
+    options?: PlaybackOptions
   ): Promise<ChannelPlayback> {
-    const queryParams = options ? `?${toQueryParams(options)}` : "";
+    const queryParams = options ? `?${toQueryParams(options)}` : '';
     return this.baseClient.post<ChannelPlayback>(
       `/channels/${channelId}/play/${playbackId}${queryParams}`,
-      { media },
+      { media }
     );
   }
 
@@ -961,11 +968,11 @@ export class Channels {
   async snoopChannelWithId(
     channelId: string,
     snoopId: string,
-    options: SnoopOptions,
+    options: SnoopOptions
   ): Promise<Channel> {
     const queryParams = toQueryParams(options);
     return this.baseClient.post<Channel>(
-      `/channels/${channelId}/snoop/${snoopId}?${queryParams}`,
+      `/channels/${channelId}/snoop/${snoopId}?${queryParams}`
     );
   }
 
@@ -979,7 +986,7 @@ export class Channels {
   async startMohWithClass(channelId: string, mohClass: string): Promise<void> {
     const queryParams = `mohClass=${encodeURIComponent(mohClass)}`;
     await this.baseClient.post<void>(
-      `/channels/${channelId}/moh?${queryParams}`,
+      `/channels/${channelId}/moh?${queryParams}`
     );
   }
 
@@ -993,13 +1000,13 @@ export class Channels {
    */
   async getChannelVariable(
     channelId: string,
-    variable: string,
+    variable: string
   ): Promise<ChannelVar> {
     if (!variable) {
       throw new Error("The 'variable' parameter is required.");
     }
     return this.baseClient.get<ChannelVar>(
-      `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`,
+      `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`
     );
   }
 
@@ -1015,7 +1022,7 @@ export class Channels {
   async setChannelVariable(
     channelId: string,
     variable: string,
-    value?: string,
+    value?: string
   ): Promise<void> {
     if (!variable) {
       throw new Error("The 'variable' parameter is required.");
@@ -1025,7 +1032,7 @@ export class Channels {
       ...(value && { value }),
     });
     await this.baseClient.post<void>(
-      `/channels/${channelId}/variable?${queryParams}`,
+      `/channels/${channelId}/variable?${queryParams}`
     );
   }
 
@@ -1040,7 +1047,7 @@ export class Channels {
   async moveToApplication(
     channelId: string,
     app: string,
-    appArgs?: string,
+    appArgs?: string
   ): Promise<void> {
     await this.baseClient.post<void>(`/channels/${channelId}/move`, {
       app,
@@ -1063,7 +1070,7 @@ export class Channels {
     context?: string,
     extension?: string,
     priority?: number,
-    label?: string,
+    label?: string
   ): Promise<void> {
     await this.baseClient.post<void>(`/channels/${channelId}/continue`, {
       context,
@@ -1103,7 +1110,7 @@ export class Channels {
   async record(channelId: string, options: RecordingOptions): Promise<Channel> {
     const queryParams = toQueryParams(options);
     return this.baseClient.post<Channel>(
-      `/channels/${channelId}/record?${queryParams}`,
+      `/channels/${channelId}/record?${queryParams}`
     );
   }
 
@@ -1118,14 +1125,14 @@ export class Channels {
   async dial(
     channelId: string,
     caller?: string,
-    timeout?: number,
+    timeout?: number
   ): Promise<void> {
     const queryParams = new URLSearchParams({
       ...(caller && { caller }),
       ...(timeout && { timeout: timeout.toString() }),
     });
     await this.baseClient.post<void>(
-      `/channels/${channelId}/dial?${queryParams}`,
+      `/channels/${channelId}/dial?${queryParams}`
     );
   }
 
@@ -1140,7 +1147,7 @@ export class Channels {
    */
   async redirectChannel(channelId: string, endpoint: string): Promise<void> {
     await this.baseClient.post<void>(
-      `/channels/${channelId}/redirect?endpoint=${encodeURIComponent(endpoint)}`,
+      `/channels/${channelId}/redirect?endpoint=${encodeURIComponent(endpoint)}`
     );
   }
 
@@ -1197,11 +1204,11 @@ export class Channels {
       between?: number;
       duration?: number;
       after?: number;
-    },
+    }
   ): Promise<void> {
     const queryParams = toQueryParams({ dtmf, ...options });
     await this.baseClient.post<void>(
-      `/channels/${channelId}/dtmf?${queryParams}`,
+      `/channels/${channelId}/dtmf?${queryParams}`
     );
   }
 
@@ -1214,10 +1221,10 @@ export class Channels {
    */
   async muteChannel(
     channelId: string,
-    direction: "both" | "in" | "out" = "both",
+    direction: 'both' | 'in' | 'out' = 'both'
   ): Promise<void> {
     await this.baseClient.post<void>(
-      `/channels/${channelId}/mute?direction=${direction}`,
+      `/channels/${channelId}/mute?direction=${direction}`
     );
   }
 
@@ -1230,10 +1237,10 @@ export class Channels {
    */
   async unmuteChannel(
     channelId: string,
-    direction: "both" | "in" | "out" = "both",
+    direction: 'both' | 'in' | 'out' = 'both'
   ): Promise<void> {
     await this.baseClient.delete<void>(
-      `/channels/${channelId}/mute?direction=${direction}`,
+      `/channels/${channelId}/mute?direction=${direction}`
     );
   }
 
@@ -1264,7 +1271,7 @@ export class Channels {
    * @return {Promise<Channel>} A promise that resolves with the details of the created channel.
    */
   async createChannel(data: OriginateRequest): Promise<Channel> {
-    return this.baseClient.post<Channel>("/channels/create", data);
+    return this.baseClient.post<Channel>('/channels/create', data);
   }
 
   /**
@@ -1276,7 +1283,7 @@ export class Channels {
    */
   async originateWithId(
     channelId: string,
-    data: OriginateRequest,
+    data: OriginateRequest
   ): Promise<Channel> {
     return this.baseClient.post<Channel>(`/channels/${channelId}`, data);
   }
