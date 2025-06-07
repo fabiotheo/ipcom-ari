@@ -37,3 +37,19 @@ export type {
   BridgePlayback,
   PlayMediaRequest,
 } from './bridges.types';
+export type {
+  StoredRecording,
+  LiveRecording,
+  RecordingState,
+  GetStoredParams,
+  DeleteStoredParams,
+  GetStoredFileParams,
+  CopyStoredParams,
+  GetLiveParams,
+  CancelParams,
+  StopParams,
+  PauseParams,
+  UnpauseParams,
+  MuteParams,
+  UnmuteParams,
+} from './recordings.types';

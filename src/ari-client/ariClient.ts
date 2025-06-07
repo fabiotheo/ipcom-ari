@@ -17,6 +17,7 @@ import { Endpoints } from './resources/endpoints';
 import { type PlaybackInstance, Playbacks } from './resources/playbacks';
 import { Sounds } from './resources/sounds';
 import { WebSocketClient } from './websocketClient.js';
+import { Recordings } from './resources/recordings';
 
 /**
  * Main client class for interacting with the Asterisk REST Interface (ARI).
@@ -44,6 +45,7 @@ export class AriClient {
   public readonly sounds: Sounds;
   public readonly asterisk: Asterisk;
   public readonly bridges: Bridges;
+  public readonly recordings: Recordings;
 
   /**
    * Creates a new instance of the ARI client.
@@ -72,6 +74,7 @@ export class AriClient {
     this.applications = new Applications(this.baseClient);
     this.sounds = new Sounds(this.baseClient);
     this.asterisk = new Asterisk(this.baseClient);
+    this.recordings = new Recordings(this.baseClient);
 
     console.log(`ARI Client initialized with base URL: ${baseUrl}`);
   }
@@ -215,6 +218,7 @@ export class AriClient {
       (this.applications as any) = null;
       (this.sounds as any) = null;
       (this.asterisk as any) = null;
+      (this.recordings as any) = null;
 
       console.log('ARI Client destroyed successfully');
     } catch (error) {
