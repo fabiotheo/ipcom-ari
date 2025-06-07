@@ -1,7 +1,7 @@
-import type { AriClient } from "../ariClient";
-import type { BaseClient } from "../baseClient.js";
-import type { Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, WebSocketEvent } from "../interfaces";
-import type { PlaybackInstance } from "./playbacks";
+import type { AriClient } from '../ariClient';
+import type { BaseClient } from '../baseClient.js';
+import type { Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, WebSocketEvent } from '../interfaces';
+import type { PlaybackInstance } from './playbacks';
 /**
  * Represents an instance of a communication channel managed by the AriClient.
  */
@@ -16,13 +16,13 @@ export declare class ChannelInstance {
     /**
      * Registers an event listener for specific channel events
      */
-    on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+    on<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
      * Registers a one-time event listener
      */
-    once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+    once<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
@@ -34,7 +34,7 @@ export declare class ChannelInstance {
      * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      * @throws {Error} If no event type is provided
      */
-    off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
+    off<T extends WebSocketEvent['type']>(event: T, listener?: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
@@ -184,7 +184,7 @@ export declare class ChannelInstance {
      * @return {Promise<void>} A promise that resolves when the channel is successfully muted.
      * @throws {Error} If the channel is not associated with this instance.
      */
-    muteChannel(direction?: "both" | "in" | "out"): Promise<void>;
+    muteChannel(direction?: 'both' | 'in' | 'out'): Promise<void>;
     /**
      * Unmutes a previously muted channel in the specified direction.
      *
@@ -193,7 +193,7 @@ export declare class ChannelInstance {
      * @return {Promise<void>} A promise that resolves once the channel has been successfully unmuted.
      * @throws {Error} If the channel is not associated with the current instance.
      */
-    unmuteChannel(direction?: "both" | "in" | "out"): Promise<void>;
+    unmuteChannel(direction?: 'both' | 'in' | 'out'): Promise<void>;
     /**
      * Places the associated channel on hold if the channel is valid and linked to this instance.
      *
@@ -486,7 +486,7 @@ export declare class Channels {
      * @param {"both" | "in" | "out"} [direction="both"] - The direction for muting, can be "both", "in", or "out". Default is "both".
      * @return {Promise<void>} A promise that resolves when the channel is successfully muted.
      */
-    muteChannel(channelId: string, direction?: "both" | "in" | "out"): Promise<void>;
+    muteChannel(channelId: string, direction?: 'both' | 'in' | 'out'): Promise<void>;
     /**
      * Unmutes a previously muted channel, allowing communication in the specified direction(s).
      *
@@ -494,7 +494,7 @@ export declare class Channels {
      * @param {"both" | "in" | "out"} [direction="both"] - The direction of communication to unmute. Valid options are "both", "in" (incoming messages), or "out" (outgoing messages). Defaults to "both".
      * @return {Promise<void>} A promise that resolves when the channel is successfully unmuted.
      */
-    unmuteChannel(channelId: string, direction?: "both" | "in" | "out"): Promise<void>;
+    unmuteChannel(channelId: string, direction?: 'both' | 'in' | 'out'): Promise<void>;
     /**
      * Places a specific channel on hold by sending a POST request to the server.
      *

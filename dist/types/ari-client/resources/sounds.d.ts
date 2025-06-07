@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { Sound, SoundListRequest } from "../interfaces/sounds.types.js";
+import type { BaseClient } from '../baseClient.js';
+import type { Sound, SoundListRequest } from '../interfaces/sounds.types.js';
 export declare class Sounds {
     private client;
     constructor(client: BaseClient);

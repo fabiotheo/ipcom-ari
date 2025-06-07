@@ -1,4 +1,4 @@
-import { type AxiosRequestConfig } from "axios";
+import { type AxiosRequestConfig } from 'axios';
 /**
  * BaseClient handles HTTP communications with the ARI server.
  * Provides methods for making HTTP requests and manages authentication and error handling.

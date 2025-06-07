@@ -1,4 +1,4 @@
-import type { Channel, WebSocketEvent } from "./interfaces";
+import type { Channel, WebSocketEvent } from './interfaces';
 export declare function toQueryParams<T>(options: T): string;
 export declare function isPlaybackEvent(event: WebSocketEvent, playbackId?: string): event is Extract<WebSocketEvent, {
     playbackId: string;

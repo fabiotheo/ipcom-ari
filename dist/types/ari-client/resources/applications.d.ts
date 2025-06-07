@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { Application, ApplicationDetails } from "../interfaces/applications.types.js";
+import type { BaseClient } from '../baseClient.js';
+import type { Application, ApplicationDetails } from '../interfaces/applications.types.js';
 export interface ApplicationMessage {
     event: string;
     data?: Record<string, any>;

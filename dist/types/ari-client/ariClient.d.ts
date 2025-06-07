@@ -1,12 +1,13 @@
-import type { AriClientConfig, WebSocketEvent, WebSocketEventType } from "./interfaces";
-import type { TypedWebSocketEventListener } from "./interfaces/websocket.types";
-import { Applications } from "./resources/applications.js";
-import { Asterisk } from "./resources/asterisk";
-import { type BridgeInstance, Bridges } from "./resources/bridges";
-import { type ChannelInstance, Channels } from "./resources/channels.js";
-import { Endpoints } from "./resources/endpoints";
-import { type PlaybackInstance, Playbacks } from "./resources/playbacks";
-import { Sounds } from "./resources/sounds";
+import type { AriClientConfig, WebSocketEvent, WebSocketEventType } from './interfaces';
+import type { TypedWebSocketEventListener } from './interfaces/websocket.types';
+import { Applications } from './resources/applications.js';
+import { Asterisk } from './resources/asterisk';
+import { type BridgeInstance, Bridges } from './resources/bridges';
+import { type ChannelInstance, Channels } from './resources/channels.js';
+import { Endpoints } from './resources/endpoints';
+import { type PlaybackInstance, Playbacks } from './resources/playbacks';
+import { Sounds } from './resources/sounds';
+import { Recordings } from './resources/recordings';
 /**
  * Main client class for interacting with the Asterisk REST Interface (ARI).
  * Provides access to various ARI resources and WebSocket event handling capabilities.
@@ -33,6 +34,7 @@ export declare class AriClient {
     readonly sounds: Sounds;
     readonly asterisk: Asterisk;
     readonly bridges: Bridges;
+    readonly recordings: Recordings;
     /**
      * Creates a new instance of the ARI client.
      *
@@ -81,7 +83,7 @@ export declare class AriClient {
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    on<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    on<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Registers a one-time event listener for WebSocket events.
      *
@@ -89,14 +91,14 @@ export declare class AriClient {
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    once<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    once<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Removes an event listener for WebSocket events.
      *
      * @param {T} event - The event type to remove listener for
      * @param {Function} listener - The listener function to remove
      */
-    off<T extends WebSocketEvent["type"]>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    off<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
     /**
      * Closes the WebSocket connection if one exists.
      */

@@ -1,7 +1,7 @@
-import { EventEmitter } from "events";
-import type { AriClient } from "./ariClient";
-import type { BaseClient } from "./baseClient.js";
-import type { WebSocketEventType } from "./interfaces";
+import { EventEmitter } from 'events';
+import type { AriClient } from './ariClient';
+import type { BaseClient } from './baseClient.js';
+import type { WebSocketEventType } from './interfaces';
 /**
  * WebSocketClient handles real-time communication with the Asterisk server.
  * Extends EventEmitter to provide event-based communication patterns.

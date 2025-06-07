@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { Endpoint, EndpointDetails } from "../interfaces/endpoints.types";
+import type { BaseClient } from '../baseClient.js';
+import type { Endpoint, EndpointDetails } from '../interfaces/endpoints.types';
 export declare class Endpoints {
     private client;
     constructor(client: BaseClient);

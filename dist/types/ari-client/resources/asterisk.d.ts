@@ -1,5 +1,5 @@
-import type { BaseClient } from "../baseClient.js";
-import type { AsteriskInfo, AsteriskPing, Logging, Module, Variable } from "../interfaces";
+import type { BaseClient } from '../baseClient.js';
+import type { AsteriskInfo, AsteriskPing, Logging, Module, Variable } from '../interfaces';
 export declare class Asterisk {
     private client;
     constructor(client: BaseClient);
@@ -20,7 +20,7 @@ export declare class Asterisk {
      * @returns A promise that resolves when the action is completed successfully.
      * @throws {Error} Throws an error if the HTTP method or action is invalid.
      */
-    manage(moduleName: string, action: "load" | "unload" | "reload"): Promise<void>;
+    manage(moduleName: string, action: 'load' | 'unload' | 'reload'): Promise<void>;
     /**
      * Retrieves all configured logging channels.
      */
@@ -28,7 +28,7 @@ export declare class Asterisk {
     /**
      * Adds or removes a log channel in the Asterisk server.
      */
-    manageLogChannel(logChannelName: string, action: "add" | "remove", configuration?: {
+    manageLogChannel(logChannelName: string, action: 'add' | 'remove', configuration?: {
         type?: string;
         configuration?: string;
     }): Promise<void>;

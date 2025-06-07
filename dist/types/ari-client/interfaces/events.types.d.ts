@@ -1,8 +1,8 @@
-import type { ChannelInstance } from "../resources/channels";
-import type { PlaybackInstance, Playbacks } from "../resources/playbacks";
-import type { Bridge } from "./bridges.types";
-import type { Channel } from "./channels.types";
-import type { Playback } from "./playbacks.types";
+import type { ChannelInstance } from '../resources/channels';
+import type { PlaybackInstance, Playbacks } from '../resources/playbacks';
+import type { Bridge } from './bridges.types';
+import type { Channel } from './channels.types';
+import type { Playback } from './playbacks.types';
 export type ChannelEvent = Extract<WebSocketEvent, {
     channel: Channel;
 }>;
@@ -12,207 +12,207 @@ export type PlaybackEvent = Extract<WebSocketEvent, {
 export type BridgeEvent = Extract<WebSocketEvent, {
     bridge: Bridge;
 }>;
-export type WebSocketEventType = "DeviceStateChanged" | "PlaybackStarted" | "PlaybackContinuing" | "PlaybackFinished" | "RecordingStarted" | "RecordingFinished" | "RecordingFailed" | "ApplicationMoveFailed" | "ApplicationReplaced" | "BridgeCreated" | "BridgeDestroyed" | "BridgeMerged" | "BridgeBlindTransfer" | "BridgeAttendedTransfer" | "BridgeVideoSourceChanged" | "ChannelCreated" | "ChannelDestroyed" | "ChannelEnteredBridge" | "ChannelLeftBridge" | "ChannelStateChange" | "ChannelDtmfReceived" | "ChannelDialplan" | "ChannelCallerId" | "ChannelUserevent" | "ChannelHangupRequest" | "ChannelVarset" | "ChannelTalkingStarted" | "ChannelTalkingFinished" | "ChannelHold" | "ChannelUnhold" | "ContactStatusChange" | "EndpointStateChange" | "Dial" | "StasisEnd" | "StasisStart" | "TextMessageReceived" | "ChannelConnectedLine" | "PeerStatusChange";
+export type WebSocketEventType = 'DeviceStateChanged' | 'PlaybackStarted' | 'PlaybackContinuing' | 'PlaybackFinished' | 'RecordingStarted' | 'RecordingFinished' | 'RecordingFailed' | 'ApplicationMoveFailed' | 'ApplicationReplaced' | 'BridgeCreated' | 'BridgeDestroyed' | 'BridgeMerged' | 'BridgeBlindTransfer' | 'BridgeAttendedTransfer' | 'BridgeVideoSourceChanged' | 'ChannelCreated' | 'ChannelDestroyed' | 'ChannelEnteredBridge' | 'ChannelLeftBridge' | 'ChannelStateChange' | 'ChannelDtmfReceived' | 'ChannelDialplan' | 'ChannelCallerId' | 'ChannelUserevent' | 'ChannelHangupRequest' | 'ChannelVarset' | 'ChannelTalkingStarted' | 'ChannelTalkingFinished' | 'ChannelHold' | 'ChannelUnhold' | 'ContactStatusChange' | 'EndpointStateChange' | 'Dial' | 'StasisEnd' | 'StasisStart' | 'TextMessageReceived' | 'ChannelConnectedLine' | 'PeerStatusChange';
 export declare const bridgeEvents: string[];
 export type WebSocketEvent = {
-    type: "ChannelDtmfReceived";
+    type: 'ChannelDtmfReceived';
     digit: string;
     duration_ms: number;
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelDialplan";
+    type: 'ChannelDialplan';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     dialplan_app: string;
     dialplan_app_data: string;
     application: string;
 } | {
-    type: "ChannelVarset";
+    type: 'ChannelVarset';
     variable: string;
     value: string;
     channel?: Channel;
     application: string;
     instanceChannel?: ChannelInstance;
 } | {
-    type: "StasisStart";
+    type: 'StasisStart';
     args: string[];
     channel: Channel;
     instanceChannel?: ChannelInstance;
     replace_channel?: Channel;
     application: string;
 } | {
-    type: "PlaybackStarted";
+    type: 'PlaybackStarted';
     playback: Playbacks;
     asterisk_id: string;
     application: string;
     instancePlayback?: PlaybackInstance;
 } | {
-    type: "PlaybackContinuing";
-    playback: Playbacks;
-    playbackId: string;
-    asterisk_id: string;
-    application: string;
-    instancePlayback?: PlaybackInstance;
-} | {
-    type: "PlaybackFinished";
+    type: 'PlaybackContinuing';
     playback: Playbacks;
     playbackId: string;
     asterisk_id: string;
     application: string;
     instancePlayback?: PlaybackInstance;
 } | {
-    type: "BridgeCreated";
+    type: 'PlaybackFinished';
+    playback: Playbacks;
+    playbackId: string;
+    asterisk_id: string;
+    application: string;
+    instancePlayback?: PlaybackInstance;
+} | {
+    type: 'BridgeCreated';
     bridgeId: string;
     bridgeType: string;
     channels: Channel[];
     application: string;
 } | {
-    type: "BridgeDestroyed";
+    type: 'BridgeDestroyed';
     bridgeId: string;
     application: string;
 } | {
-    type: "ChannelCreated";
+    type: 'ChannelCreated';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelDestroyed";
+    type: 'ChannelDestroyed';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ApplicationMoveFailed";
+    type: 'ApplicationMoveFailed';
     application: string;
     channel: Channel;
     instanceChannel?: ChannelInstance;
 } | {
-    type: "RecordingStarted";
+    type: 'RecordingStarted';
     recordingId: string;
     name: string;
     application: string;
 } | {
-    type: "RecordingFinished";
+    type: 'RecordingFinished';
     recordingId: string;
     name: string;
     application: string;
 } | {
-    type: "RecordingFailed";
+    type: 'RecordingFailed';
     recordingId: string;
     name: string;
     reason: string;
     application: string;
 } | {
-    type: "DeviceStateChanged";
+    type: 'DeviceStateChanged';
     device: string;
     state: string;
     application: string;
 } | {
-    type: "BridgeMerged";
+    type: 'BridgeMerged';
     bridgeId: string;
     bridges: string[];
     application: string;
 } | {
-    type: "BridgeBlindTransfer";
+    type: 'BridgeBlindTransfer';
     bridgeId: string;
     channel: Channel;
     instanceChannel?: ChannelInstance;
     transferee: Channel;
     application: string;
 } | {
-    type: "BridgeAttendedTransfer";
+    type: 'BridgeAttendedTransfer';
     bridgeId: string;
     transferer: Channel;
     transferee: Channel;
     destination: Channel;
     application: string;
 } | {
-    type: "BridgeVideoSourceChanged";
+    type: 'BridgeVideoSourceChanged';
     bridgeId: string;
     old_video_source_id?: string;
     new_video_source_id: string;
     application: string;
 } | {
-    type: "ChannelEnteredBridge";
+    type: 'ChannelEnteredBridge';
     bridgeId: string;
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelLeftBridge";
+    type: 'ChannelLeftBridge';
     bridgeId: string;
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelStateChange";
+    type: 'ChannelStateChange';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelTalkingStarted";
+    type: 'ChannelTalkingStarted';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelTalkingFinished";
+    type: 'ChannelTalkingFinished';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelUnhold";
+    type: 'ChannelUnhold';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelHold";
+    type: 'ChannelHold';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ContactStatusChange";
+    type: 'ContactStatusChange';
     contact_info: Record<string, any>;
     status: string;
     aor?: string;
     application: string;
 } | {
-    type: "EndpointStateChange";
+    type: 'EndpointStateChange';
     endpoint: Record<string, any>;
     state: string;
     application: string;
 } | {
-    type: "Dial";
+    type: 'Dial';
     caller: Channel;
     peer: Channel;
     dialstring?: string;
     application: string;
 } | {
-    type: "StasisEnd";
+    type: 'StasisEnd';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "TextMessageReceived";
+    type: 'TextMessageReceived';
     to: string;
     from: string;
     body: string;
     variables?: Record<string, any>;
     application: string;
 } | {
-    type: "ChannelConnectedLine";
+    type: 'ChannelConnectedLine';
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "ChannelHangupRequest";
+    type: 'ChannelHangupRequest';
     cause: number;
     soft: boolean;
     channel: Channel;
     instanceChannel?: ChannelInstance;
     application: string;
 } | {
-    type: "PeerStatusChange";
+    type: 'PeerStatusChange';
     peer: string;
     peer_status: string;
     application: string;

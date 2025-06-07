@@ -1,6 +1,6 @@
-import type { AriClient } from "../ariClient";
-import type { BaseClient } from "../baseClient.js";
-import type { Playback, WebSocketEvent } from "../interfaces";
+import type { AriClient } from '../ariClient';
+import type { BaseClient } from '../baseClient.js';
+import type { Playback, WebSocketEvent } from '../interfaces';
 /**
  * Represents a playback instance that provides methods for controlling media playback,
  * managing event listeners, and handling playback state.
@@ -27,7 +27,7 @@ export declare class PlaybackInstance {
      * @param {T} event - Event type to listen for
      * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
-    on<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+    on<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
@@ -36,7 +36,7 @@ export declare class PlaybackInstance {
      * @param {T} event - Event type to listen for
      * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
-    once<T extends WebSocketEvent["type"]>(event: T, listener: (data: Extract<WebSocketEvent, {
+    once<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
@@ -45,7 +45,7 @@ export declare class PlaybackInstance {
      * @param {T} event - Event type to remove listener(s) for
      * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      */
-    off<T extends WebSocketEvent["type"]>(event: T, listener?: (data: Extract<WebSocketEvent, {
+    off<T extends WebSocketEvent['type']>(event: T, listener?: (data: Extract<WebSocketEvent, {
         type: T;
     }>) => void): void;
     /**
@@ -71,7 +71,7 @@ export declare class PlaybackInstance {
      * @param {"pause" | "unpause" | "reverse" | "forward"} operation - Control operation to perform
      * @throws {Error} If playback is not properly initialized or operation fails
      */
-    control(operation: "pause" | "unpause" | "reverse" | "forward"): Promise<void>;
+    control(operation: 'pause' | 'unpause' | 'reverse' | 'forward'): Promise<void>;
     /**
      * Stops the current playback.
      *
@@ -167,7 +167,7 @@ export declare class Playbacks {
      * @param {"pause" | "unpause" | "reverse" | "forward"} operation - Operation to perform
      * @throws {Error} If the playback ID is invalid or the operation fails
      */
-    control(playbackId: string, operation: "pause" | "unpause" | "reverse" | "forward"): Promise<void>;
+    control(playbackId: string, operation: 'pause' | 'unpause' | 'reverse' | 'forward'): Promise<void>;
     /**
      * Stops a specific playback instance
      * @param {string} playbackId - ID of the playback to stop

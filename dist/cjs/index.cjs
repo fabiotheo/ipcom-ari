@@ -1855,6 +1855,7 @@ var ChannelInstance = class {
       listeners.forEach((listener) => {
         this.eventEmitter.off(
           event,
+          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
           listener
         );
       });
@@ -1919,7 +1920,10 @@ var ChannelInstance = class {
       });
     } catch (error) {
       const message = getErrorMessage2(error);
-      console.error(`Error continuing dialplan for channel ${this.id}:`, message);
+      console.error(
+        `Error continuing dialplan for channel ${this.id}:`,
+        message
+      );
       throw new Error(`Failed to continue dialplan: ${message}`);
     }
   }
@@ -3690,6 +3694,137 @@ var WebSocketClient = class extends import_events4.EventEmitter {
   }
 };
 
+// src/ari-client/resources/recordings.ts
+var Recordings = class {
+  constructor(baseClient) {
+    this.baseClient = baseClient;
+  }
+  /**
+   * List recordings that are complete.
+   * @returns Promise<StoredRecording[]>
+   */
+  async listStored() {
+    return this.baseClient.get("/recordings/stored");
+  }
+  /**
+   * Get a stored recording's details.
+   * @param params - The parameters for getting a stored recording
+   * @returns Promise<StoredRecording>
+   */
+  async getStored(params) {
+    return this.baseClient.get(
+      `/recordings/stored/${params.recordingName}`
+    );
+  }
+  /**
+   * Delete a stored recording.
+   * @param params - The parameters for deleting a stored recording
+   * @returns Promise<void>
+   */
+  async deleteStored(params) {
+    return this.baseClient.delete(
+      `/recordings/stored/${params.recordingName}`
+    );
+  }
+  /**
+   * Get the file associated with the stored recording.
+   * @param params - The parameters for getting a stored recording file
+   * @returns Promise<ArrayBuffer>
+   */
+  async getStoredFile(params) {
+    return this.baseClient.get(
+      `/recordings/stored/${params.recordingName}/file`,
+      { responseType: "arraybuffer" }
+    );
+  }
+  /**
+   * Copy a stored recording.
+   * @param params - The parameters for copying a stored recording
+   * @returns Promise<StoredRecording>
+   */
+  async copyStored(params) {
+    return this.baseClient.post(
+      `/recordings/stored/${params.recordingName}/copy`,
+      void 0,
+      {
+        params: {
+          destinationRecordingName: params.destinationRecordingName
+        }
+      }
+    );
+  }
+  /**
+   * List live recordings.
+   * @param params - The parameters for getting a live recording
+   * @returns Promise<LiveRecording>
+   */
+  async getLive(params) {
+    return this.baseClient.get(
+      `/recordings/live/${params.recordingName}`
+    );
+  }
+  /**
+   * Stop a live recording and discard it.
+   * @param params - The parameters for canceling a recording
+   * @returns Promise<void>
+   */
+  async cancel(params) {
+    return this.baseClient.delete(
+      `/recordings/live/${params.recordingName}`
+    );
+  }
+  /**
+   * Stop a live recording and store it.
+   * @param params - The parameters for stopping a recording
+   * @returns Promise<void>
+   */
+  async stop(params) {
+    return this.baseClient.post(
+      `/recordings/live/${params.recordingName}/stop`
+    );
+  }
+  /**
+   * Pause a live recording.
+   * @param params - The parameters for pausing a recording
+   * @returns Promise<void>
+   */
+  async pause(params) {
+    return this.baseClient.post(
+      `/recordings/live/${params.recordingName}/pause`
+    );
+  }
+  /**
+   * Unpause a live recording.
+   * @param params - The parameters for unpausing a recording
+   * @returns Promise<void>
+   */
+  async unpause(params) {
+    return this.baseClient.delete(
+      `/recordings/live/${params.recordingName}/pause`
+    );
+  }
+  /**
+   * Mute a live recording.
+   * @param params - The parameters for muting a recording
+   * @returns Promise<void>
+   */
+  async mute(params) {
+    return this.baseClient.post(
+      `/recordings/live/${params.recordingName}/mute`
+    );
+  }
+  /**
+   * Unmute a live recording.
+   * @param params - The parameters for unmuting a recording
+   * @returns Promise<void>
+   */
+  async unmute(params) {
+    return this.baseClient.delete(
+      `/recordings/live/${params.recordingName}/mute`
+    );
+  }
+};
+
 // src/ari-client/ariClient.ts
 var AriClient = class {
   /**
@@ -3714,6 +3849,7 @@ var AriClient = class {
     this.applications = new Applications(this.baseClient);
     this.sounds = new Sounds(this.baseClient);
     this.asterisk = new Asterisk(this.baseClient);
+    this.recordings = new Recordings(this.baseClient);
     console.log(`ARI Client initialized with base URL: ${baseUrl}`);
   }
   baseClient;
@@ -3726,6 +3862,7 @@ var AriClient = class {
   sounds;
   asterisk;
   bridges;
+  recordings;
   async cleanup() {
     try {
       console.log("Starting ARI Client cleanup...");
@@ -3837,6 +3974,7 @@ var AriClient = class {
       this.applications = null;
       this.sounds = null;
       this.asterisk = null;
+      this.recordings = null;
       console.log("ARI Client destroyed successfully");
     } catch (error) {
       console.error("Error destroying ARI Client:", error);

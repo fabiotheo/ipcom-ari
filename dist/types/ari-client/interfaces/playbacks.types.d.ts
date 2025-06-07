@@ -7,12 +7,12 @@ export interface Playback {
     next_media_uri?: string;
     target_uri: string;
     language?: string;
-    state: "queued" | "playing" | "paused" | "stopped" | "done" | "failed";
+    state: 'queued' | 'playing' | 'paused' | 'stopped' | 'done' | 'failed';
 }
 /**
  * Define as operações disponíveis para controlar um Playback.
  */
 export interface PlaybackControlRequest {
-    operation: "pause" | "unpause" | "reverse" | "forward";
+    operation: 'pause' | 'unpause' | 'reverse' | 'forward';
 }
 //# sourceMappingURL=playbacks.types.d.ts.map

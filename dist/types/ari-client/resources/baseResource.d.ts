@@ -1,4 +1,4 @@
-import type { AriClient } from "../ariClient";
+import type { AriClient } from '../ariClient';
 export declare abstract class BaseResource {
     protected readonly client: AriClient;
     private readonly emitter;
