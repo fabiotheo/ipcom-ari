@@ -1,6 +1,6 @@
 {
   "name": "@ipcom/asterisk-ari",
-  "version": "0.0.161",
+  "version": "0.0.162",
   "type": "module",
   "description": "JavaScript client for Asterisk REST Interface.",
   "homepage": "https://github.com/fabiotheo/ipcom-asterisk-ari",

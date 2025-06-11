@@ -155,6 +155,15 @@ export type WebSocketEvent =
       recordingId: string;
       name: string;
       application: string;
+      recording: {
+        name: string;
+        format: string;
+        state: string;
+        target_uri: string;
+        duration: number;
+        talking_duration: number;
+        silence_duration: number;
+      };
     }
   | {
       type: 'RecordingFailed';
