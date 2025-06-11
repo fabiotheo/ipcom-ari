@@ -5,3 +5,4 @@ doc/
 coverage/
 .idea/
 *.log
+/docs/iaInstructions.md

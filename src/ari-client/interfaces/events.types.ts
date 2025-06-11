@@ -58,6 +58,124 @@ export const bridgeEvents = [
   'BridgeVideoSourceChanged',
 ];
 
+// Tipos individuais para cada evento (extraídos da union type)
+export type ChannelDtmfReceived = Extract<
+  WebSocketEvent,
+  { type: 'ChannelDtmfReceived' }
+>;
+export type ChannelDialplanEvent = Extract<
+  WebSocketEvent,
+  { type: 'ChannelDialplan' }
+>;
+export type ChannelVarset = Extract<WebSocketEvent, { type: 'ChannelVarset' }>;
+export type StasisStart = Extract<WebSocketEvent, { type: 'StasisStart' }>;
+export type PlaybackStarted = Extract<
+  WebSocketEvent,
+  { type: 'PlaybackStarted' }
+>;
+export type PlaybackContinuing = Extract<
+  WebSocketEvent,
+  { type: 'PlaybackContinuing' }
+>;
+export type PlaybackFinished = Extract<
+  WebSocketEvent,
+  { type: 'PlaybackFinished' }
+>;
+export type BridgeCreated = Extract<WebSocketEvent, { type: 'BridgeCreated' }>;
+export type BridgeDestroyed = Extract<
+  WebSocketEvent,
+  { type: 'BridgeDestroyed' }
+>;
+export type ChannelCreated = Extract<
+  WebSocketEvent,
+  { type: 'ChannelCreated' }
+>;
+export type ChannelDestroyed = Extract<
+  WebSocketEvent,
+  { type: 'ChannelDestroyed' }
+>;
+export type ApplicationMoveFailed = Extract<
+  WebSocketEvent,
+  { type: 'ApplicationMoveFailed' }
+>;
+export type RecordingStarted = Extract<
+  WebSocketEvent,
+  { type: 'RecordingStarted' }
+>;
+export type RecordingFinished = Extract<
+  WebSocketEvent,
+  { type: 'RecordingFinished' }
+>;
+export type RecordingFailed = Extract<
+  WebSocketEvent,
+  { type: 'RecordingFailed' }
+>;
+export type DeviceStateChanged = Extract<
+  WebSocketEvent,
+  { type: 'DeviceStateChanged' }
+>;
+export type BridgeMerged = Extract<WebSocketEvent, { type: 'BridgeMerged' }>;
+export type BridgeBlindTransfer = Extract<
+  WebSocketEvent,
+  { type: 'BridgeBlindTransfer' }
+>;
+export type BridgeAttendedTransfer = Extract<
+  WebSocketEvent,
+  { type: 'BridgeAttendedTransfer' }
+>;
+export type BridgeVideoSourceChanged = Extract<
+  WebSocketEvent,
+  { type: 'BridgeVideoSourceChanged' }
+>;
+export type ChannelEnteredBridge = Extract<
+  WebSocketEvent,
+  { type: 'ChannelEnteredBridge' }
+>;
+export type ChannelLeftBridge = Extract<
+  WebSocketEvent,
+  { type: 'ChannelLeftBridge' }
+>;
+export type ChannelStateChange = Extract<
+  WebSocketEvent,
+  { type: 'ChannelStateChange' }
+>;
+export type ChannelTalkingStarted = Extract<
+  WebSocketEvent,
+  { type: 'ChannelTalkingStarted' }
+>;
+export type ChannelTalkingFinished = Extract<
+  WebSocketEvent,
+  { type: 'ChannelTalkingFinished' }
+>;
+export type ChannelUnhold = Extract<WebSocketEvent, { type: 'ChannelUnhold' }>;
+export type ChannelHold = Extract<WebSocketEvent, { type: 'ChannelHold' }>;
+export type ContactStatusChange = Extract<
+  WebSocketEvent,
+  { type: 'ContactStatusChange' }
+>;
+export type EndpointStateChange = Extract<
+  WebSocketEvent,
+  { type: 'EndpointStateChange' }
+>;
+export type Dial = Extract<WebSocketEvent, { type: 'Dial' }>;
+export type StasisEnd = Extract<WebSocketEvent, { type: 'StasisEnd' }>;
+export type TextMessageReceived = Extract<
+  WebSocketEvent,
+  { type: 'TextMessageReceived' }
+>;
+export type ChannelConnectedLine = Extract<
+  WebSocketEvent,
+  { type: 'ChannelConnectedLine' }
+>;
+export type ChannelHangupRequest = Extract<
+  WebSocketEvent,
+  { type: 'ChannelHangupRequest' }
+>;
+export type PeerStatusChange = Extract<
+  WebSocketEvent,
+  { type: 'PeerStatusChange' }
+>;
+
 export type WebSocketEvent =
   | {
       type: 'ChannelDtmfReceived';

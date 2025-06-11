@@ -30,5 +30,5 @@ export type { Endpoint, EndpointDetails, } from './ari-client/interfaces/index.j
 export type { Application, ApplicationDetails, } from './ari-client/interfaces/index.js';
 export type { Sound, SoundListRequest } from './ari-client/interfaces/index.js';
 export type { AsteriskInfo, Module, Logging, Variable, AsteriskPing, } from './ari-client/interfaces/index.js';
-export type { WebSocketEvent, WebSocketEventType, } from './ari-client/interfaces/index.js';
+export type { WebSocketEvent, WebSocketEventType, ChannelDtmfReceived, ChannelDialplanEvent, ChannelVarset, StasisStart, PlaybackStarted, PlaybackContinuing, PlaybackFinished, BridgeCreated, BridgeDestroyed, ChannelCreated, ChannelDestroyed, ApplicationMoveFailed, RecordingStarted, RecordingFinished, RecordingFailed, DeviceStateChanged, BridgeMerged, BridgeBlindTransfer, BridgeAttendedTransfer, BridgeVideoSourceChanged, ChannelEnteredBridge, ChannelLeftBridge, ChannelStateChange, ChannelTalkingStarted, ChannelTalkingFinished, ChannelUnhold, ChannelHold, ContactStatusChange, EndpointStateChange, Dial, StasisEnd, TextMessageReceived, ChannelConnectedLine, ChannelHangupRequest, PeerStatusChange, } from './ari-client/interfaces/index.js';
 //# sourceMappingURL=index.d.ts.map
