@@ -32,6 +32,7 @@ export class BaseClient {
    * @param {string} baseUrl - The base URL for the API
    * @param {string} username - Username for authentication
    * @param {string} password - Password for authentication
+   * @param {boolean} [secure=false] - Whether to use secure connections (HTTPS/WSS)
    * @param {number} [timeout=5000] - Request timeout in milliseconds
    * @throws {Error} If the base URL format is invalid
    */
@@ -39,6 +40,7 @@ export class BaseClient {
     private readonly baseUrl: string,
     private readonly username: string,
     private readonly password: string,
+    private readonly secure: boolean = false,
     timeout = 5000
   ) {
     if (!/^https?:\/\/.+/.test(baseUrl)) {
@@ -67,17 +69,20 @@ export class BaseClient {
   }
 
   /**
-   * Gets the configured credentials.
+   * Gets the configured credentials including security settings.
+   * Used by WebSocketClient to determine authentication method.
    */
   public getCredentials(): {
     baseUrl: string;
     username: string;
     password: string;
+    secure: boolean;
   } {
     return {
       baseUrl: this.baseUrl,
       username: this.username,
       password: this.password,
+      secure: this.secure,
     };
   }
 

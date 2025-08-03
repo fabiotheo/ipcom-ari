@@ -611,13 +611,15 @@ var BaseClient = class {
    * @param {string} baseUrl - The base URL for the API
    * @param {string} username - Username for authentication
    * @param {string} password - Password for authentication
+   * @param {boolean} [secure=false] - Whether to use secure connections (HTTPS/WSS)
    * @param {number} [timeout=5000] - Request timeout in milliseconds
    * @throws {Error} If the base URL format is invalid
    */
-  constructor(baseUrl, username, password, timeout = 5e3) {
+  constructor(baseUrl, username, password, secure = false, timeout = 5e3) {
     this.baseUrl = baseUrl;
     this.username = username;
     this.password = password;
+    this.secure = secure;
     if (!/^https?:\/\/.+/.test(baseUrl)) {
       throw new Error(
         "Invalid base URL. It must start with http:// or https://"
@@ -641,13 +643,15 @@ var BaseClient = class {
     return this.baseUrl;
   }
   /**
-   * Gets the configured credentials.
+   * Gets the configured credentials including security settings.
+   * Used by WebSocketClient to determine authentication method.
    */
   getCredentials() {
     return {
       baseUrl: this.baseUrl,
       username: this.username,
-      password: this.password
+      password: this.password,
+      secure: this.secure
     };
   }
   /**
@@ -3385,15 +3389,23 @@ var WebSocketClient = class extends import_events4.EventEmitter {
     }
     this.shouldReconnect = true;
     this.isConnecting = true;
-    const { baseUrl, username, password } = this.baseClient.getCredentials();
-    const protocol = baseUrl.startsWith("https") ? "wss" : "ws";
+    const { baseUrl, username, password, secure } = this.baseClient.getCredentials();
+    const protocol = secure ? "wss" : "ws";
     const normalizedHost = baseUrl.replace(/^https?:\/\//, "").replace(/\/ari$/, "");
     const queryParams = new URLSearchParams();
+    if (!secure) {
+      queryParams.append("api_key", `${username}:${password}`);
+    }
     queryParams.append("app", this.apps.join(","));
     this.subscribedEvents?.forEach(
       (event) => queryParams.append("event", event)
     );
-    this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    if (secure) {
+      this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    } else {
+      this.lastWsUrl = `${protocol}://${normalizedHost}/ari/events?${queryParams.toString()}`;
+    }
+    console.log(`WebSocket URL: ${this.lastWsUrl.replace(/(api_key=)[^&]*/, "$1***")}`);
     try {
       await this.initializeWebSocket(this.lastWsUrl);
     } finally {
@@ -3841,7 +3853,7 @@ var AriClient = class {
     const httpProtocol = config.secure ? "https" : "http";
     const normalizedHost = config.host.replace(/^https?:\/\//, "");
     const baseUrl = `${httpProtocol}://${normalizedHost}:${config.port}/ari`;
-    this.baseClient = new BaseClient(baseUrl, config.username, config.password);
+    this.baseClient = new BaseClient(baseUrl, config.username, config.password, config.secure || false);
     this.channels = new Channels(this.baseClient, this);
     this.playbacks = new Playbacks(this.baseClient, this);
     this.bridges = new Bridges(this.baseClient, this);

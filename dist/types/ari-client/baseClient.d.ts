@@ -7,6 +7,7 @@ export declare class BaseClient {
     private readonly baseUrl;
     private readonly username;
     private readonly password;
+    private readonly secure;
     private readonly client;
     /**
      * Creates a new BaseClient instance.
@@ -14,21 +15,24 @@ export declare class BaseClient {
      * @param {string} baseUrl - The base URL for the API
      * @param {string} username - Username for authentication
      * @param {string} password - Password for authentication
+     * @param {boolean} [secure=false] - Whether to use secure connections (HTTPS/WSS)
      * @param {number} [timeout=5000] - Request timeout in milliseconds
      * @throws {Error} If the base URL format is invalid
      */
-    constructor(baseUrl: string, username: string, password: string, timeout?: number);
+    constructor(baseUrl: string, username: string, password: string, secure?: boolean, timeout?: number);
     /**
      * Gets the base URL of the client.
      */
     getBaseUrl(): string;
     /**
-     * Gets the configured credentials.
+     * Gets the configured credentials including security settings.
+     * Used by WebSocketClient to determine authentication method.
      */
     getCredentials(): {
         baseUrl: string;
         username: string;
         password: string;
+        secure: boolean;
     };
     /**
      * Adds request and response interceptors to the Axios instance.

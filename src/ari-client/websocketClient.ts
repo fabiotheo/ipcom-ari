@@ -131,20 +131,35 @@ export class WebSocketClient extends EventEmitter {
 
     this.shouldReconnect = true; // 🔹 Permite reconexão caso o WebSocket caia inesperadamente
     this.isConnecting = true;
-    const { baseUrl, username, password } = this.baseClient.getCredentials();
+    const { baseUrl, username, password, secure } = this.baseClient.getCredentials();
 
-    const protocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+    const protocol = secure ? 'wss' : 'ws';
     const normalizedHost = baseUrl
       .replace(/^https?:\/\//, '')
       .replace(/\/ari$/, '');
 
     const queryParams = new URLSearchParams();
+    
+    // ✅ Usar api_key para conexões não seguras (HTTP/WS)
+    if (!secure) {
+      queryParams.append('api_key', `${username}:${password}`);
+    }
+    
     queryParams.append('app', this.apps.join(','));
     this.subscribedEvents?.forEach((event) =>
       queryParams.append('event', event)
     );
 
-    this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    // ✅ Construir URL baseada no tipo de conexão
+    if (secure) {
+      // HTTPS/WSS: usar HTTP Basic Auth na URL (seu caso)
+      this.lastWsUrl = `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${normalizedHost}/ari/events?${queryParams.toString()}`;
+    } else {
+      // HTTP/WS: usar api_key query parameter (caso da issue)
+      this.lastWsUrl = `${protocol}://${normalizedHost}/ari/events?${queryParams.toString()}`;
+    }
+
+    console.log(`WebSocket URL: ${this.lastWsUrl.replace(/(api_key=)[^&]*/, '$1***')}`); // Log sem mostrar credenciais
 
     try {
       await this.initializeWebSocket(this.lastWsUrl);
