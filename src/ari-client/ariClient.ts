@@ -64,7 +64,7 @@ export class AriClient {
     const baseUrl = `${httpProtocol}://${normalizedHost}:${config.port}/ari`;
 
     // Initialize base client and resources
-    this.baseClient = new BaseClient(baseUrl, config.username, config.password);
+    this.baseClient = new BaseClient(baseUrl, config.username, config.password, config.secure || false);
 
     // Initialize resource handlers
     this.channels = new Channels(this.baseClient, this);
