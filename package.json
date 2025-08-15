@@ -1,9 +1,9 @@
 {
   "name": "@ipcom/asterisk-ari",
-  "version": "0.0.163",
+  "version": "0.0.164",
   "type": "module",
   "description": "JavaScript client for Asterisk REST Interface.",
-  "homepage": "https://github.com/fabiotheo/ipcom-asterisk-ari",
+  "homepage": "https://github.com/fabiotheo/ipcom-ari",
   "keywords": [
     "Asterisk",
     "ARI",
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://fabiotheo/ipcom-asterisk-ari"
+    "url": "https://github.com/fabiotheo/ipcom-ari"
   },
   "bugs": {
     "url": "https://ipcom.com.br",
