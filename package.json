@@ -1,6 +1,6 @@
 {
   "name": "@ipcom/asterisk-ari",
-  "version": "0.0.164",
+  "version": "0.0.165",
   "type": "module",
   "description": "JavaScript client for Asterisk REST Interface.",
   "homepage": "https://github.com/fabiotheo/ipcom-ari",
@@ -18,11 +18,11 @@
     "build": "node build.js",
     "prepublishOnly": "npm run build",
     "start": "node dist/esm/index.js",
-    "docs": "./node_modules/.bin/typedoc && touch docs/.nojekyll"
+    "docs": "typedoc && touch docs/.nojekyll"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fabiotheo/ipcom-ari"
+    "url": "git+https://github.com/fabiotheo/ipcom-ari.git"
   },
   "bugs": {
     "url": "https://ipcom.com.br",
