@@ -1,4 +1,4 @@
-import type { AriClientConfig, WebSocketEvent, WebSocketEventType } from './interfaces';
+import type { AriClientConfig, AriEventMap, WebSocketEventType } from './interfaces';
 import type { TypedWebSocketEventListener } from './interfaces/websocket.types';
 import { Applications } from './resources/applications.js';
 import { Asterisk } from './resources/asterisk';
@@ -72,18 +72,11 @@ export declare class AriClient {
     /**
      * Registers an event listener for WebSocket events.
      *
-     * @param {T} event - The event type to listen for
+     * @param {K} event - The event type to listen for
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    /**
-     * Registers an event listener for WebSocket events.
-     *
-     * @param {T} event - The event type to listen for
-     * @param {Function} listener - Callback function for handling the event
-     * @throws {Error} If WebSocket is not connected
-     */
-    on<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    on<K extends keyof AriEventMap>(event: K, listener: TypedWebSocketEventListener<K>): void;
     /**
      * Registers a one-time event listener for WebSocket events.
      *
@@ -91,14 +84,14 @@ export declare class AriClient {
      * @param {Function} listener - Callback function for handling the event
      * @throws {Error} If WebSocket is not connected
      */
-    once<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    once<K extends keyof AriEventMap>(event: K, listener: TypedWebSocketEventListener<K>): void;
     /**
      * Removes an event listener for WebSocket events.
      *
      * @param {T} event - The event type to remove listener for
      * @param {Function} listener - The listener function to remove
      */
-    off<T extends WebSocketEvent['type']>(event: T, listener: TypedWebSocketEventListener<T>): void;
+    off<K extends keyof AriEventMap>(event: K, listener: TypedWebSocketEventListener<K>): void;
     /**
      * Closes the WebSocket connection if one exists.
      */

@@ -94,6 +94,7 @@ export type {
 
 // WebSocket Related Types
 export type {
+  AriEventMap,
   WebSocketEvent,
   WebSocketEventType,
   // Eventos individuais

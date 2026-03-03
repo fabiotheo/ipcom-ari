@@ -1,6 +1,6 @@
 import type { AriClient } from '../ariClient';
 import type { BaseClient } from '../baseClient.js';
-import type { Playback, WebSocketEvent } from '../interfaces';
+import type { AriEventMap, Playback, WebSocketEvent } from '../interfaces';
 /**
  * Represents a playback instance that provides methods for controlling media playback,
  * managing event listeners, and handling playback state.
@@ -27,27 +27,21 @@ export declare class PlaybackInstance {
      * @param {T} event - Event type to listen for
      * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
-    on<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    on<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Registers a one-time event listener for a specific WebSocket event type.
      *
      * @param {T} event - Event type to listen for
      * @param {(data: WebSocketEvent) => void} listener - Callback function for the event
      */
-    once<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    once<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Removes event listener(s) for a specific WebSocket event type.
      *
      * @param {T} event - Event type to remove listener(s) for
      * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      */
-    off<T extends WebSocketEvent['type']>(event: T, listener?: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    off<K extends keyof AriEventMap>(event: K, listener?: (data: AriEventMap[K]) => void): void;
     /**
      * Cleans up the PlaybackInstance, resetting its state and clearing resources.
      */

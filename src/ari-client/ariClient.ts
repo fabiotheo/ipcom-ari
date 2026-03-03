@@ -2,6 +2,7 @@
 import { BaseClient } from './baseClient.js';
 import type {
   AriClientConfig,
+  AriEventMap,
   WebSocketEvent,
   WebSocketEventType,
 } from './interfaces';
@@ -119,7 +120,7 @@ export class AriClient {
       // Limpar listeners do cliente ARI
       this.eventListeners.forEach((listeners, event) => {
         listeners.forEach((listener) => {
-          this.off(event as WebSocketEvent['type'], listener);
+          this.off(event as keyof AriEventMap, listener);
         });
       });
       this.eventListeners.clear();
@@ -230,20 +231,13 @@ export class AriClient {
   /**
    * Registers an event listener for WebSocket events.
    *
-   * @param {T} event - The event type to listen for
+   * @param {K} event - The event type to listen for
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
-  /**
-   * Registers an event listener for WebSocket events.
-   *
-   * @param {T} event - The event type to listen for
-   * @param {Function} listener - Callback function for handling the event
-   * @throws {Error} If WebSocket is not connected
-   */
-  public on<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: TypedWebSocketEventListener<T>
+  public on<K extends keyof AriEventMap>(
+    event: K,
+    listener: TypedWebSocketEventListener<K>
   ): void {
     if (!this.webSocketClient) {
       throw new Error('WebSocket is not connected');
@@ -273,9 +267,9 @@ export class AriClient {
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */
-  public once<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: TypedWebSocketEventListener<T>
+  public once<K extends keyof AriEventMap>(
+    event: K,
+    listener: TypedWebSocketEventListener<K>
   ): void {
     if (!this.webSocketClient) {
       throw new Error('WebSocket is not connected');
@@ -290,7 +284,7 @@ export class AriClient {
       return;
     }
 
-    const wrappedListener = (data: Extract<WebSocketEvent, { type: T }>) => {
+    const wrappedListener = (data: AriEventMap[K]) => {
       listener(data);
       this.off(event, wrappedListener);
     };
@@ -310,9 +304,9 @@ export class AriClient {
    * @param {T} event - The event type to remove listener for
    * @param {Function} listener - The listener function to remove
    */
-  public off<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: TypedWebSocketEventListener<T>
+  public off<K extends keyof AriEventMap>(
+    event: K,
+    listener: TypedWebSocketEventListener<K>
   ): void {
     if (!this.webSocketClient) {
       console.warn('No WebSocket connection to remove listener from');
@@ -355,7 +349,7 @@ export class AriClient {
       this.eventListeners.forEach((listeners, event) => {
         listeners.forEach((listener) => {
           this.webSocketClient?.off(
-            event as WebSocketEvent['type'],
+            event as keyof AriEventMap,
             listener as (...args: any[]) => void
           );
         });

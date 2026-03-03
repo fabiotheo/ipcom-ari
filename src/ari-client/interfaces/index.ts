@@ -23,6 +23,7 @@ export type {
   AsteriskPing,
 } from './asterisk.types';
 export type {
+  AriEventMap,
   WebSocketEvent,
   WebSocketEventType,
   ChannelEvent,

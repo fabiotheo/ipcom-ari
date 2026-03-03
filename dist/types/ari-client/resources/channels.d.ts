@@ -1,6 +1,6 @@
 import type { AriClient } from '../ariClient';
 import type { BaseClient } from '../baseClient.js';
-import type { Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, WebSocketEvent } from '../interfaces';
+import type { AriEventMap, Channel, ChannelPlayback, ChannelVar, ExternalMediaOptions, OriginateRequest, PlaybackOptions, RTPStats, RecordingOptions, SnoopOptions, WebSocketEvent } from '../interfaces';
 import type { PlaybackInstance } from './playbacks';
 /**
  * Represents an instance of a communication channel managed by the AriClient.
@@ -16,15 +16,11 @@ export declare class ChannelInstance {
     /**
      * Registers an event listener for specific channel events
      */
-    on<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    on<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Registers a one-time event listener
      */
-    once<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    once<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Removes event listener(s) for a specific WebSocket event type.
      * If a specific listener is provided, only that listener is removed.
@@ -34,9 +30,7 @@ export declare class ChannelInstance {
      * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
      * @throws {Error} If no event type is provided
      */
-    off<T extends WebSocketEvent['type']>(event: T, listener?: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    off<K extends keyof AriEventMap>(event: K, listener?: (data: AriEventMap[K]) => void): void;
     /**
      * Cleans up the ChannelInstance, resetting its state and clearing resources.
      */

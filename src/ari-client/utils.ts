@@ -1,4 +1,4 @@
-import type { Channel, WebSocketEvent } from './interfaces';
+import type { Channel, Playback, WebSocketEvent } from './interfaces';
 
 export function toQueryParams<T>(options: T): string {
   return new URLSearchParams(
@@ -11,9 +11,11 @@ export function toQueryParams<T>(options: T): string {
 export function isPlaybackEvent(
   event: WebSocketEvent,
   playbackId?: string
-): event is Extract<WebSocketEvent, { playbackId: string }> {
-  const hasPlayback = 'playback' in event && event.playback?.id !== undefined;
-  return hasPlayback && (!playbackId || event.playback?.id === playbackId);
+): event is Extract<WebSocketEvent, { playback: Playback }> {
+  if (!('playback' in event) || typeof event.playback?.id !== 'string') {
+    return false;
+  }
+  return !playbackId || event.playback.id === playbackId;
 }
 
 /**

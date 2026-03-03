@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AriClient } from '../ariClient';
 import type { BaseClient } from '../baseClient.js';
 import type {
+  AriEventMap,
   Channel,
   ChannelPlayback,
   ChannelVar,
@@ -42,11 +43,8 @@ const getErrorMessage = (error: unknown): string => {
 export class ChannelInstance {
   private readonly eventEmitter = new EventEmitter();
   private channelData: Channel | null = null;
-  private readonly listenersMap = new Map<
-    string,
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    ((...args: any[]) => void)[]
-  >(); // 🔹 Guarda listeners para remoção posterior
+  // biome-ignore lint/suspicious/noExplicitAny: Maps original listener → wrapped listener per event
+  private readonly listenersMap = new Map<string, Map<(...args: any[]) => void, (...args: any[]) => void>>();
   public readonly id: string;
 
   constructor(
@@ -60,17 +58,16 @@ export class ChannelInstance {
   /**
    * Registers an event listener for specific channel events
    */
-  on<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
+  on<K extends keyof AriEventMap>(
+    event: K,
+    listener: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
-    // 🔹 Verifica se o listener já está registrado para evitar duplicação
-    const existingListeners = this.listenersMap.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
         `Listener já registrado para evento ${event}, reutilizando.`
       );
@@ -79,62 +76,44 @@ export class ChannelInstance {
 
     const wrappedListener = (data: WebSocketEvent) => {
       if ('channel' in data && data.channel?.id === this.id) {
-        listener(data as Extract<WebSocketEvent, { type: T }>);
+        listener(data as AriEventMap[K]);
       }
     };
 
     this.eventEmitter.on(event, wrappedListener);
-
-    // 🔹 Armazena o listener para futura remoção
-    if (!this.listenersMap.has(event)) {
-      this.listenersMap.set(event, []);
-    }
-    this.listenersMap
-      .get(event)!
-      .push(wrappedListener as (...args: any[]) => void);
+    eventListeners.set(listener, wrappedListener as (...args: any[]) => void);
+    this.listenersMap.set(event, eventListeners);
   }
 
   /**
    * Registers a one-time event listener
    */
-  once<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
+  once<K extends keyof AriEventMap>(
+    event: K,
+    listener: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
-    const eventKey = `${event}-${this.id}`;
-
-    // 🔹 Verifica se já existe um listener igual para evitar duplicação
-    const existingListeners = this.listenersMap.get(eventKey) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
-        `One-time listener já registrado para evento ${eventKey}, reutilizando.`
+        `One-time listener já registrado para evento ${event}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
       if ('channel' in data && data.channel?.id === this.id) {
-        listener(data as Extract<WebSocketEvent, { type: T }>);
-
-        // 🔹 Remove automaticamente o listener após a primeira execução
-        this.off(event, wrappedListener);
+        listener(data as AriEventMap[K]);
+        this.off(event, listener);
       }
     };
 
     this.eventEmitter.once(event, wrappedListener);
-
-    // 🔹 Armazena o listener para futura remoção
-    if (!this.listenersMap.has(eventKey)) {
-      this.listenersMap.set(eventKey, []);
-    }
-    this.listenersMap
-      .get(eventKey)!
-      // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-      .push(wrappedListener as (...args: any[]) => void);
+    eventListeners.set(listener, wrappedListener as (...args: any[]) => void);
+    this.listenersMap.set(event, eventListeners);
   }
 
   /**
@@ -146,21 +125,21 @@ export class ChannelInstance {
    * @param {(data: WebSocketEvent) => void} [listener] - Optional specific listener to remove
    * @throws {Error} If no event type is provided
    */
-  off<T extends WebSocketEvent['type']>(
-    event: T,
-    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void
+  off<K extends keyof AriEventMap>(
+    event: K,
+    listener?: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
     if (listener) {
-      this.eventEmitter.off(event, listener);
-      const storedListeners = this.listenersMap.get(event) || [];
-      this.listenersMap.set(
-        event,
-        storedListeners.filter((l) => l !== listener)
-      );
+      const eventListeners = this.listenersMap.get(event);
+      const wrappedListener = eventListeners?.get(listener);
+      if (wrappedListener) {
+        this.eventEmitter.off(event, wrappedListener);
+        eventListeners!.delete(listener);
+      }
     } else {
       this.eventEmitter.removeAllListeners(event);
       this.listenersMap.delete(event);
@@ -207,12 +186,8 @@ export class ChannelInstance {
     console.log(`Removing all event listeners for channel ${this.id}`);
 
     this.listenersMap.forEach((listeners, event) => {
-      listeners.forEach((listener) => {
-        this.eventEmitter.off(
-          event as string,
-          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          listener as (...args: any[]) => void
-        );
+      listeners.forEach((wrappedListener) => {
+        this.eventEmitter.off(event, wrappedListener);
       });
     });
 

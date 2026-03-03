@@ -323,7 +323,7 @@ export class WebSocketClient extends EventEmitter {
   private processEvent(event: WebSocketEvent): void {
     if (
       this.subscribedEvents?.length &&
-      !this.subscribedEvents.includes(event.type as WebSocketEventType)
+      !this.subscribedEvents.includes(event.type)
     ) {
       return;
     }
@@ -363,7 +363,17 @@ export class WebSocketClient extends EventEmitter {
    */
   private handleMessage(rawMessage: string): void {
     try {
-      const event: WebSocketEvent = JSON.parse(rawMessage);
+      const parsed: unknown = JSON.parse(rawMessage);
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        !('type' in parsed) ||
+        typeof (parsed as Record<string, unknown>).type !== 'string'
+      ) {
+        console.warn('Received malformed WebSocket message (missing type)');
+        return;
+      }
+      const event = parsed as WebSocketEvent;
 
       // Debounce eventos similares
       const key = this.getEventKey(event);

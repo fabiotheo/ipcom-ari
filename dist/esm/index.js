@@ -115,7 +115,7 @@ var require_delay_base = __commonJS({
     var jitter_factory_1 = require_jitter_factory();
     var Delay = (
       /** @class */
-      function() {
+      (function() {
         function Delay2(options) {
           this.options = options;
           this.attempt = 0;
@@ -156,7 +156,7 @@ var require_delay_base = __commonJS({
           configurable: true
         });
         return Delay2;
-      }()
+      })()
     );
     exports.Delay = Delay;
   }
@@ -166,7 +166,7 @@ var require_delay_base = __commonJS({
 var require_skip_first_delay = __commonJS({
   "node_modules/exponential-backoff/dist/delay/skip-first/skip-first.delay.js"(exports) {
     "use strict";
-    var __extends = exports && exports.__extends || /* @__PURE__ */ function() {
+    var __extends = exports && exports.__extends || /* @__PURE__ */ (function() {
       var extendStatics = function(d, b) {
         extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
           d2.__proto__ = b2;
@@ -182,7 +182,7 @@ var require_skip_first_delay = __commonJS({
         }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
       };
-    }();
+    })();
     var __awaiter = exports && exports.__awaiter || function(thisArg, _arguments, P, generator) {
       function adopt(value) {
         return value instanceof P ? value : new P(function(resolve) {
@@ -283,7 +283,7 @@ var require_skip_first_delay = __commonJS({
     var delay_base_1 = require_delay_base();
     var SkipFirstDelay = (
       /** @class */
-      function(_super) {
+      (function(_super) {
         __extends(SkipFirstDelay2, _super);
         function SkipFirstDelay2() {
           return _super !== null && _super.apply(this, arguments) || this;
@@ -310,7 +310,7 @@ var require_skip_first_delay = __commonJS({
           configurable: true
         });
         return SkipFirstDelay2;
-      }(delay_base_1.Delay)
+      })(delay_base_1.Delay)
     );
     exports.SkipFirstDelay = SkipFirstDelay;
   }
@@ -320,7 +320,7 @@ var require_skip_first_delay = __commonJS({
 var require_always_delay = __commonJS({
   "node_modules/exponential-backoff/dist/delay/always/always.delay.js"(exports) {
     "use strict";
-    var __extends = exports && exports.__extends || /* @__PURE__ */ function() {
+    var __extends = exports && exports.__extends || /* @__PURE__ */ (function() {
       var extendStatics = function(d, b) {
         extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
           d2.__proto__ = b2;
@@ -336,18 +336,18 @@ var require_always_delay = __commonJS({
         }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
       };
-    }();
+    })();
     Object.defineProperty(exports, "__esModule", { value: true });
     var delay_base_1 = require_delay_base();
     var AlwaysDelay = (
       /** @class */
-      function(_super) {
+      (function(_super) {
         __extends(AlwaysDelay2, _super);
         function AlwaysDelay2() {
           return _super !== null && _super.apply(this, arguments) || this;
         }
         return AlwaysDelay2;
-      }(delay_base_1.Delay)
+      })(delay_base_1.Delay)
     );
     exports.AlwaysDelay = AlwaysDelay;
   }
@@ -499,7 +499,7 @@ var require_backoff = __commonJS({
     exports.backOff = backOff2;
     var BackOff = (
       /** @class */
-      function() {
+      (function() {
         function BackOff2(request, options) {
           this.request = request;
           this.options = options;
@@ -565,7 +565,7 @@ var require_backoff = __commonJS({
           });
         };
         return BackOff2;
-      }()
+      })()
     );
   }
 });
@@ -950,8 +950,8 @@ var BridgeInstance = class {
     this.id = bridgeId || `bridge-${Date.now()}`;
   }
   eventEmitter = new EventEmitter();
+  // biome-ignore lint/suspicious/noExplicitAny: Maps original listener → wrapped listener per event
   listenersMap = /* @__PURE__ */ new Map();
-  // 🔹 Guarda listeners para remoção posterior
   bridgeData = null;
   id;
   /**
@@ -959,30 +959,18 @@ var BridgeInstance = class {
    *
    * @param event - The type of event to listen for.
    * @param listener - The callback function to be called when the event occurs.
-   */
-  /**
-   * Registers a listener for specific bridge events.
-   *
-   * This method allows you to attach an event listener to the bridge instance for a specific event type.
-   * When the specified event occurs, the provided listener function will be called with the event data.
-   *
-   * @template T - The specific type of WebSocketEvent to listen for.
-   *                               It receives the event data as its parameter.
-   * @returns {void}
    *
    * @example
    * bridge.on('BridgeCreated', (event) => {
    *
    * });
-   * @param event
-   * @param listener
    */
   on(event, listener) {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const existingListeners = this.listenersMap.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
         `Listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
@@ -994,10 +982,8 @@ var BridgeInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    if (!this.listenersMap.has(event)) {
-      this.listenersMap.set(event, []);
-    }
-    this.listenersMap.get(event).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Registers a one-time listener for specific bridge events.
@@ -1009,25 +995,22 @@ var BridgeInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const eventKey = `${event}-${this.id}`;
-    const existingListeners = this.listenersMap.get(eventKey) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
-        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+        `One-time listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
       return;
     }
     const wrappedListener = (data) => {
       if ("bridge" in data && data.bridge?.id === this.id) {
         listener(data);
-        this.off(event, wrappedListener);
+        this.off(event, listener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    if (!this.listenersMap.has(eventKey)) {
-      this.listenersMap.set(eventKey, []);
-    }
-    this.listenersMap.get(eventKey).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Removes event listener(s) from the bridge.
@@ -1040,12 +1023,12 @@ var BridgeInstance = class {
       throw new Error("Event type is required");
     }
     if (listener) {
-      this.eventEmitter.off(event, listener);
-      const storedListeners = this.listenersMap.get(event) || [];
-      this.listenersMap.set(
-        event,
-        storedListeners.filter((l) => l !== listener)
-      );
+      const eventListeners = this.listenersMap.get(event);
+      const wrappedListener = eventListeners?.get(listener);
+      if (wrappedListener) {
+        this.eventEmitter.off(event, wrappedListener);
+        eventListeners.delete(listener);
+      }
     } else {
       this.eventEmitter.removeAllListeners(event);
       this.listenersMap.delete(event);
@@ -1080,11 +1063,8 @@ var BridgeInstance = class {
   removeAllListeners() {
     console.log(`Removing all event listeners for bridge ${this.id}`);
     this.listenersMap.forEach((listeners, event) => {
-      listeners.forEach((listener) => {
-        this.eventEmitter.off(
-          event,
-          listener
-        );
+      listeners.forEach((wrappedListener) => {
+        this.eventEmitter.off(event, wrappedListener);
       });
     });
     this.listenersMap.clear();
@@ -1725,8 +1705,8 @@ var ChannelInstance = class {
   }
   eventEmitter = new EventEmitter2();
   channelData = null;
+  // biome-ignore lint/suspicious/noExplicitAny: Maps original listener → wrapped listener per event
   listenersMap = /* @__PURE__ */ new Map();
-  // 🔹 Guarda listeners para remoção posterior
   id;
   /**
    * Registers an event listener for specific channel events
@@ -1735,8 +1715,8 @@ var ChannelInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const existingListeners = this.listenersMap.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
         `Listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
@@ -1748,10 +1728,8 @@ var ChannelInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    if (!this.listenersMap.has(event)) {
-      this.listenersMap.set(event, []);
-    }
-    this.listenersMap.get(event).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Registers a one-time event listener
@@ -1760,25 +1738,22 @@ var ChannelInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const eventKey = `${event}-${this.id}`;
-    const existingListeners = this.listenersMap.get(eventKey) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
-        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+        `One-time listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
       return;
     }
     const wrappedListener = (data) => {
       if ("channel" in data && data.channel?.id === this.id) {
         listener(data);
-        this.off(event, wrappedListener);
+        this.off(event, listener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    if (!this.listenersMap.has(eventKey)) {
-      this.listenersMap.set(eventKey, []);
-    }
-    this.listenersMap.get(eventKey).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -1794,12 +1769,12 @@ var ChannelInstance = class {
       throw new Error("Event type is required");
     }
     if (listener) {
-      this.eventEmitter.off(event, listener);
-      const storedListeners = this.listenersMap.get(event) || [];
-      this.listenersMap.set(
-        event,
-        storedListeners.filter((l) => l !== listener)
-      );
+      const eventListeners = this.listenersMap.get(event);
+      const wrappedListener = eventListeners?.get(listener);
+      if (wrappedListener) {
+        this.eventEmitter.off(event, wrappedListener);
+        eventListeners.delete(listener);
+      }
     } else {
       this.eventEmitter.removeAllListeners(event);
       this.listenersMap.delete(event);
@@ -1835,12 +1810,8 @@ var ChannelInstance = class {
   removeAllListeners() {
     console.log(`Removing all event listeners for channel ${this.id}`);
     this.listenersMap.forEach((listeners, event) => {
-      listeners.forEach((listener) => {
-        this.eventEmitter.off(
-          event,
-          // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-          listener
-        );
+      listeners.forEach((wrappedListener) => {
+        this.eventEmitter.off(event, wrappedListener);
       });
     });
     this.listenersMap.clear();
@@ -2816,8 +2787,8 @@ var PlaybackInstance = class {
     this.id = playbackId;
   }
   eventEmitter = new EventEmitter3();
+  // biome-ignore lint/suspicious/noExplicitAny: Maps original listener → wrapped listener per event
   listenersMap = /* @__PURE__ */ new Map();
-  // 🔹 Guarda listeners para remoção posterior
   playbackData = null;
   id;
   /**
@@ -2830,8 +2801,8 @@ var PlaybackInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const existingListeners = this.listenersMap.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
         `Listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
@@ -2843,10 +2814,8 @@ var PlaybackInstance = class {
       }
     };
     this.eventEmitter.on(event, wrappedListener);
-    if (!this.listenersMap.has(event)) {
-      this.listenersMap.set(event, []);
-    }
-    this.listenersMap.get(event).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Registers a one-time event listener for a specific WebSocket event type.
@@ -2858,25 +2827,22 @@ var PlaybackInstance = class {
     if (!event) {
       throw new Error("Event type is required");
     }
-    const eventKey = `${event}-${this.id}`;
-    const existingListeners = this.listenersMap.get(eventKey) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? /* @__PURE__ */ new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
-        `One-time listener j\xE1 registrado para evento ${eventKey}, reutilizando.`
+        `One-time listener j\xE1 registrado para evento ${event}, reutilizando.`
       );
       return;
     }
     const wrappedListener = (data) => {
       if ("playback" in data && data.playback?.id === this.id) {
         listener(data);
-        this.off(event, wrappedListener);
+        this.off(event, listener);
       }
     };
     this.eventEmitter.once(event, wrappedListener);
-    if (!this.listenersMap.has(eventKey)) {
-      this.listenersMap.set(eventKey, []);
-    }
-    this.listenersMap.get(eventKey).push(wrappedListener);
+    eventListeners.set(listener, wrappedListener);
+    this.listenersMap.set(event, eventListeners);
   }
   /**
    * Removes event listener(s) for a specific WebSocket event type.
@@ -2889,12 +2855,12 @@ var PlaybackInstance = class {
       throw new Error("Event type is required");
     }
     if (listener) {
-      this.eventEmitter.off(event, listener);
-      const storedListeners = this.listenersMap.get(event) || [];
-      this.listenersMap.set(
-        event,
-        storedListeners.filter((l) => l !== listener)
-      );
+      const eventListeners = this.listenersMap.get(event);
+      const wrappedListener = eventListeners?.get(listener);
+      if (wrappedListener) {
+        this.eventEmitter.off(event, wrappedListener);
+        eventListeners.delete(listener);
+      }
     } else {
       this.eventEmitter.removeAllListeners(event);
       this.listenersMap.delete(event);
@@ -2997,11 +2963,8 @@ var PlaybackInstance = class {
   removeAllListeners() {
     console.log(`Removing all event listeners for playback ${this.id}`);
     this.listenersMap.forEach((listeners, event) => {
-      listeners.forEach((listener) => {
-        this.eventEmitter.off(
-          event,
-          listener
-        );
+      listeners.forEach((wrappedListener) => {
+        this.eventEmitter.off(event, wrappedListener);
       });
     });
     this.listenersMap.clear();
@@ -3540,7 +3503,12 @@ var WebSocketClient = class extends EventEmitter4 {
    */
   handleMessage(rawMessage) {
     try {
-      const event = JSON.parse(rawMessage);
+      const parsed = JSON.parse(rawMessage);
+      if (!parsed || typeof parsed !== "object" || !("type" in parsed) || typeof parsed.type !== "string") {
+        console.warn("Received malformed WebSocket message (missing type)");
+        return;
+      }
+      const event = parsed;
       const key = this.getEventKey(event);
       const existing = this.eventQueue.get(key);
       if (existing) {
@@ -3975,14 +3943,7 @@ var AriClient = class {
   /**
    * Registers an event listener for WebSocket events.
    *
-   * @param {T} event - The event type to listen for
-   * @param {Function} listener - Callback function for handling the event
-   * @throws {Error} If WebSocket is not connected
-   */
-  /**
-   * Registers an event listener for WebSocket events.
-   *
-   * @param {T} event - The event type to listen for
+   * @param {K} event - The event type to listen for
    * @param {Function} listener - Callback function for handling the event
    * @throws {Error} If WebSocket is not connected
    */

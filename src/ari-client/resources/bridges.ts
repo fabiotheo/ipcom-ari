@@ -4,6 +4,7 @@ import type { AriClient } from '../ariClient';
 import type { BaseClient } from '../baseClient.js';
 import type {
   AddChannelRequest,
+  AriEventMap,
   Bridge,
   BridgePlayback,
   CreateBridgeRequest,
@@ -49,10 +50,8 @@ const getErrorMessage = (error: unknown): string => {
  */
 export class BridgeInstance {
   private readonly eventEmitter = new EventEmitter();
-  private readonly listenersMap = new Map<
-    string,
-    ((...args: any[]) => void)[]
-  >(); // 🔹 Guarda listeners para remoção posterior
+  // biome-ignore lint/suspicious/noExplicitAny: Maps original listener → wrapped listener per event
+  private readonly listenersMap = new Map<string, Map<(...args: any[]) => void, (...args: any[]) => void>>();
   private bridgeData: Bridge | null = null;
   public readonly id: string;
 
@@ -76,35 +75,22 @@ export class BridgeInstance {
    *
    * @param event - The type of event to listen for.
    * @param listener - The callback function to be called when the event occurs.
-   */
-  /**
-   * Registers a listener for specific bridge events.
-   *
-   * This method allows you to attach an event listener to the bridge instance for a specific event type.
-   * When the specified event occurs, the provided listener function will be called with the event data.
-   *
-   * @template T - The specific type of WebSocketEvent to listen for.
-   *                               It receives the event data as its parameter.
-   * @returns {void}
    *
    * @example
    * bridge.on('BridgeCreated', (event) => {
    *
    * });
-   * @param event
-   * @param listener
    */
-  on<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
+  on<K extends keyof AriEventMap>(
+    event: K,
+    listener: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
-    // 🔹 Verifica se o listener já está registrado
-    const existingListeners = this.listenersMap.get(event) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
         `Listener já registrado para evento ${event}, reutilizando.`
       );
@@ -113,19 +99,13 @@ export class BridgeInstance {
 
     const wrappedListener = (data: WebSocketEvent) => {
       if ('bridge' in data && data.bridge?.id === this.id) {
-        listener(data as Extract<WebSocketEvent, { type: T }>);
+        listener(data as AriEventMap[K]);
       }
     };
 
     this.eventEmitter.on(event, wrappedListener);
-
-    // 🔹 Armazena o listener para futura remoção
-    if (!this.listenersMap.has(event)) {
-      this.listenersMap.set(event, []);
-    }
-    this.listenersMap
-      .get(event)!
-      .push(wrappedListener as (...args: any[]) => void);
+    eventListeners.set(listener, wrappedListener as (...args: any[]) => void);
+    this.listenersMap.set(event, eventListeners);
   }
 
   /**
@@ -134,43 +114,32 @@ export class BridgeInstance {
    * @param event - The type of event to listen for.
    * @param listener - The callback function to be called when the event occurs.
    */
-  once<T extends WebSocketEvent['type']>(
-    event: T,
-    listener: (data: Extract<WebSocketEvent, { type: T }>) => void
+  once<K extends keyof AriEventMap>(
+    event: K,
+    listener: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
-    const eventKey = `${event}-${this.id}`;
-
-    // 🔹 Verifica se já existe um listener igual para evitar duplicação
-    const existingListeners = this.listenersMap.get(eventKey) || [];
-    if (existingListeners.includes(listener)) {
+    const eventListeners = this.listenersMap.get(event) ?? new Map();
+    if (eventListeners.has(listener)) {
       console.warn(
-        `One-time listener já registrado para evento ${eventKey}, reutilizando.`
+        `One-time listener já registrado para evento ${event}, reutilizando.`
       );
       return;
     }
 
     const wrappedListener = (data: WebSocketEvent) => {
       if ('bridge' in data && data.bridge?.id === this.id) {
-        listener(data as Extract<WebSocketEvent, { type: T }>);
-
-        // 🔹 Remove automaticamente o listener após a primeira execução
-        this.off(event, wrappedListener);
+        listener(data as AriEventMap[K]);
+        this.off(event, listener);
       }
     };
 
     this.eventEmitter.once(event, wrappedListener);
-
-    // 🔹 Armazena o listener para futura remoção
-    if (!this.listenersMap.has(eventKey)) {
-      this.listenersMap.set(eventKey, []);
-    }
-    this.listenersMap
-      .get(eventKey)!
-      .push(wrappedListener as (...args: any[]) => void);
+    eventListeners.set(listener, wrappedListener as (...args: any[]) => void);
+    this.listenersMap.set(event, eventListeners);
   }
 
   /**
@@ -179,21 +148,21 @@ export class BridgeInstance {
    * @param event - The type of event to remove listeners for.
    * @param listener - Optional. The specific listener to remove. If not provided, all listeners for the event will be removed.
    */
-  off<T extends WebSocketEvent['type']>(
-    event: T,
-    listener?: (data: Extract<WebSocketEvent, { type: T }>) => void
+  off<K extends keyof AriEventMap>(
+    event: K,
+    listener?: (data: AriEventMap[K]) => void
   ): void {
     if (!event) {
       throw new Error('Event type is required');
     }
 
     if (listener) {
-      this.eventEmitter.off(event, listener);
-      const storedListeners = this.listenersMap.get(event) || [];
-      this.listenersMap.set(
-        event,
-        storedListeners.filter((l) => l !== listener)
-      );
+      const eventListeners = this.listenersMap.get(event);
+      const wrappedListener = eventListeners?.get(listener);
+      if (wrappedListener) {
+        this.eventEmitter.off(event, wrappedListener);
+        eventListeners!.delete(listener);
+      }
     } else {
       this.eventEmitter.removeAllListeners(event);
       this.listenersMap.delete(event);
@@ -238,11 +207,8 @@ export class BridgeInstance {
   removeAllListeners(): void {
     console.log(`Removing all event listeners for bridge ${this.id}`);
     this.listenersMap.forEach((listeners, event) => {
-      listeners.forEach((listener) => {
-        this.eventEmitter.off(
-          event as string,
-          listener as (...args: any[]) => void
-        );
+      listeners.forEach((wrappedListener) => {
+        this.eventEmitter.off(event, wrappedListener);
       });
     });
 

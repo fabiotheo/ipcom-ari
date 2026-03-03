@@ -1,10 +1,10 @@
-import type { WebSocketEvent } from './events.types';
+import type { AriEventMap, WebSocketEvent } from './events.types';
 
 export type WebSocketEventListener = (data: WebSocketEvent) => void;
 
 /**
  * Tipo específico para um listener de um tipo de evento específico
  */
-export type TypedWebSocketEventListener<T extends WebSocketEvent['type']> = (
-  data: Extract<WebSocketEvent, { type: T }>
+export type TypedWebSocketEventListener<K extends keyof AriEventMap> = (
+  data: AriEventMap[K]
 ) => void;

@@ -1,6 +1,6 @@
 import type { AriClient } from '../ariClient';
 import type { BaseClient } from '../baseClient.js';
-import type { AddChannelRequest, Bridge, BridgePlayback, CreateBridgeRequest, PlayMediaRequest, RemoveChannelRequest, WebSocketEvent } from '../interfaces';
+import type { AddChannelRequest, AriEventMap, Bridge, BridgePlayback, CreateBridgeRequest, PlayMediaRequest, RemoveChannelRequest, WebSocketEvent } from '../interfaces';
 /**
  * Represents an instance of a Bridge that provides methods to control
  * bridges, manage event listeners, and manipulate its state.
@@ -25,45 +25,27 @@ export declare class BridgeInstance {
      *
      * @param event - The type of event to listen for.
      * @param listener - The callback function to be called when the event occurs.
-     */
-    /**
-     * Registers a listener for specific bridge events.
-     *
-     * This method allows you to attach an event listener to the bridge instance for a specific event type.
-     * When the specified event occurs, the provided listener function will be called with the event data.
-     *
-     * @template T - The specific type of WebSocketEvent to listen for.
-     *                               It receives the event data as its parameter.
-     * @returns {void}
      *
      * @example
      * bridge.on('BridgeCreated', (event) => {
      *
      * });
-     * @param event
-     * @param listener
      */
-    on<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    on<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Registers a one-time listener for specific bridge events.
      *
      * @param event - The type of event to listen for.
      * @param listener - The callback function to be called when the event occurs.
      */
-    once<T extends WebSocketEvent['type']>(event: T, listener: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    once<K extends keyof AriEventMap>(event: K, listener: (data: AriEventMap[K]) => void): void;
     /**
      * Removes event listener(s) from the bridge.
      *
      * @param event - The type of event to remove listeners for.
      * @param listener - Optional. The specific listener to remove. If not provided, all listeners for the event will be removed.
      */
-    off<T extends WebSocketEvent['type']>(event: T, listener?: (data: Extract<WebSocketEvent, {
-        type: T;
-    }>) => void): void;
+    off<K extends keyof AriEventMap>(event: K, listener?: (data: AriEventMap[K]) => void): void;
     /**
      * Cleans up the BridgeInstance, resetting its state and clearing resources.
      */
