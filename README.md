@@ -1,6 +1,20 @@
-# @ipcom/asterisk-ari
+<div align="center">
 
-A modern JavaScript/TypeScript library for interacting with the Asterisk REST Interface (ARI).
+```
+ ___  ____   ____  ____  __  __       __    ____  ____
+(  _)(  _ \ / ___)(  _ \(  \/  )     /__\  (  _ \(_  _)
+ )(_  )___/( (__   )(_) ))    ( _   /(__)\  )   / _)(_
+(___)(__)   \___) (____/(_/\/\_)(__) (__)(__)(_)\_)(____)
+```
+
+**A modern TypeScript client for Asterisk REST Interface**
+
+[![npm version](https://img.shields.io/npm/v/@ipcom/asterisk-ari)](https://www.npmjs.com/package/@ipcom/asterisk-ari)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
+
+</div>
 
 ## Features
 
