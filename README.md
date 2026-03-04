@@ -6,11 +6,13 @@ A modern JavaScript/TypeScript library for interacting with the Asterisk REST In
 
 - Complete Asterisk ARI support
 - Written in TypeScript with full type support
+- Fully typed event system with autocomplete (`AriEventMap`)
+- Listener dedup — safe to register the same listener twice
 - WebSocket support for real-time events
 - Automatic reconnection management
 - Simplified channel and playback handling
 - ESM and CommonJS support
-- Complete type documentation
+- Unit tested with Vitest
 
 ## Installation
 
@@ -26,11 +28,11 @@ npm install @ipcom/asterisk-ari
 import { AriClient } from '@ipcom/asterisk-ari';
 
 const client = new AriClient({
-    host: 'localhost',      // Asterisk host
-    port: 8088,            // ARI port
-    username: 'username',   // ARI username
-    password: 'password',   // ARI password
-    secure: false          // Use true for HTTPS/WSS
+  host: 'localhost',      // Asterisk host
+  port: 8088,             // ARI port
+  username: 'username',   // ARI username
+  password: 'password',   // ARI password
+  secure: false           // Use true for HTTPS/WSS
 });
 ```
 
@@ -41,17 +43,17 @@ const client = new AriClient({
 await client.connectWebSocket(['myApp']); // 'myApp' is your application name
 
 // Listen for specific events
-client.on('StasisStart', event => {
-    console.log('New channel started:', event.channel.id);
+client.on('StasisStart', (event) => {
+  console.log('New channel started:', event.channel.id);
 });
 
-client.on('StasisEnd', event => {
-    console.log('Channel ended:', event.channel.id);
+client.on('StasisEnd', (event) => {
+  console.log('Channel ended:', event.channel.id);
 });
 
 // Listen for DTMF events
-client.on('ChannelDtmfReceived', event => {
-    console.log('DTMF received:', event.digit);
+client.on('ChannelDtmfReceived', (event) => {
+  console.log('DTMF received:', event.digit);
 });
 
 // Close WebSocket connection
@@ -65,37 +67,37 @@ client.closeWebSocket();
 When working with WebSocket events, you get access to both the raw event data and convenient instance objects that allow direct interaction with the channel or playback:
 
 ```typescript
-client.on('StasisStart', async event => {
-    // event.channel contains the raw channel data
-    console.log('New channel started:', event.channel.id);
+client.on('StasisStart', async (event) => {
+  // event.channel contains the raw channel data
+  console.log('New channel started:', event.channel.id);
 
-    // event.instanceChannel provides a ready-to-use ChannelInstance
-    const channelInstance = event.instanceChannel;
+  // event.instanceChannel provides a ready-to-use ChannelInstance
+  const channelInstance = event.instanceChannel;
 
-    // You can directly interact with the channel through the instance
-    await channelInstance.answer();
-    await channelInstance.play({ media: 'sound:welcome' });
+  // You can directly interact with the channel through the instance
+  await channelInstance.answer();
+  await channelInstance.play({ media: 'sound:welcome' });
 });
 
-client.on('BridgeCreated', async event => {
-    // event.bridge contains the raw bridge data
-    console.log('Bridge created:', event.bridge.id);
+client.on('BridgeCreated', async (event) => {
+  // event.bridge contains the raw bridge data
+  console.log('Bridge created:', event.bridge.id);
 
-    // event.instanceBridge provides a ready-to-use BridgeInstance
-    const bridgeInstance = event.instanceBridge;
+  // event.instanceBridge provides a ready-to-use BridgeInstance
+  const bridgeInstance = event.instanceBridge;
 
-    // Direct control through the instance
-    await bridgeInstance.add({ channel: ['channel-id-1', 'channel-id-2'] });
+  // Direct control through the instance
+  await bridgeInstance.add({ channel: ['channel-id-1', 'channel-id-2'] });
 });
 
 // Similarly for playback events
-client.on('PlaybackStarted', async event => {
+client.on('PlaybackStarted', async (event) => {
   // event.playback contains the raw playback data
   console.log('Playback ID:', event.playback.id);
 
   // event.instancePlayback provides a ready-to-use PlaybackInstance
   const playbackInstance = event.instancePlayback;
-  
+
   // Direct control through the instance
   await playbackInstance.control('pause');
 });
@@ -109,7 +111,7 @@ This approach provides two key benefits:
 
 Traditional approach:
 ```typescript
-client.on('StasisStart', async event => {
+client.on('StasisStart', async (event) => {
   // Need to create channel instance manually
   const channel = client.Channel(event.channel.id);
   await channel.answer();
@@ -118,7 +120,7 @@ client.on('StasisStart', async event => {
 
 Using instance from event:
 ```typescript
-client.on('StasisStart', async event => {
+client.on('StasisStart', async (event) => {
   // Instance is already available
   await event.instanceChannel.answer();
 });
@@ -159,11 +161,11 @@ await channel.hangup();
 const playback = client.Playback();
 
 // Monitor playback events
-playback.on('PlaybackStarted', event => {
+playback.on('PlaybackStarted', (event) => {
   console.log('Playback started:', event.playback.id);
 });
 
-playback.on('PlaybackFinished', event => {
+playback.on('PlaybackFinished', (event) => {
   console.log('Playback finished:', event.playback.id);
 });
 
@@ -216,11 +218,11 @@ await bridge.clearVideoSource();
 const channel = client.Channel('channel-id');
 
 // Monitor specific channel events
-channel.on('ChannelStateChange', event => {
+channel.on('ChannelStateChange', (event) => {
   console.log('Channel state changed:', event.channel.state);
 });
 
-channel.on('ChannelDtmfReceived', event => {
+channel.on('ChannelDtmfReceived', (event) => {
   console.log('DTMF received on channel:', event.digit);
 });
 
@@ -244,7 +246,7 @@ const playback = await channel.play({
 });
 
 // Monitor specific playback
-playback.on('PlaybackStarted', event => {
+playback.on('PlaybackStarted', (event) => {
   console.log('Playback started on channel');
 });
 
@@ -261,15 +263,15 @@ await channel.resumePlayback(playback.id);
 const bridge = client.Bridge('bridge-id');
 
 // Monitor bridge events
-bridge.on('BridgeCreated', event => {
+bridge.on('BridgeCreated', (event) => {
   console.log('Bridge created:', event.bridge.id);
 });
 
-bridge.on('BridgeDestroyed', event => {
+bridge.on('BridgeDestroyed', (event) => {
   console.log('Bridge destroyed:', event.bridge.id);
 });
 
-bridge.on('BridgeMerged', event => {
+bridge.on('BridgeMerged', (event) => {
   console.log('Bridge merged:', event.bridge.id);
 });
 
@@ -278,11 +280,11 @@ const details = await bridge.get();
 console.log('Bridge details:', details);
 
 // Monitor channel events in bridge
-bridge.on('ChannelEnteredBridge', event => {
+bridge.on('ChannelEnteredBridge', (event) => {
   console.log('Channel entered bridge:', event.channel.id);
 });
 
-bridge.on('ChannelLeftBridge', event => {
+bridge.on('ChannelLeftBridge', (event) => {
   console.log('Channel left bridge:', event.channel.id);
 });
 ```
@@ -309,26 +311,66 @@ try {
 
 ## TypeScript Support
 
-The library provides complete type definitions for all operations:
+Every event is mapped in the `AriEventMap` interface, so `client.on()` gives you full autocomplete and type inference:
 
 ```typescript
-import type {
-    Channel,
-    Bridge,
-    ChannelEvent,
-    BridgeEvent,
-    WebSocketEvent
-} from '@ipcom/asterisk-ari';
+// The event parameter is automatically typed — no manual annotations needed
+client.on('StasisStart', (event) => {
+  event.channel.id;          // string ✔
+  event.args;                // string[] ✔
+  event.instanceChannel;     // ChannelInstance | undefined ✔
+});
 
-// Types will be available for use
-const handleChannelEvent = (event: ChannelEvent) => {
-  const channelId: string = event.channel.id;
-};
+client.on('ChannelDtmfReceived', (event) => {
+  event.digit;               // string ✔
+  event.duration_ms;         // number ✔
+});
+```
 
-// Types will be available for use
-const handleBridgeEvent = (event: BridgeEvent) => {
-    const bridgeId: string = event.bridge.id;
-};
+You can also import `AriEventMap` and individual event types directly:
+
+```typescript
+import type { AriEventMap, StasisStart, ChannelDtmfReceived } from '@ipcom/asterisk-ari';
+
+function handleStart(event: StasisStart) {
+  console.log(event.channel.name);
+}
+
+// Or use a lookup on the map
+type MyEvent = AriEventMap['PlaybackFinished'];
+```
+
+## Custom Events
+
+`AriEventMap` is an interface, so you can extend it via declaration merging to add your own events with full type safety:
+
+```typescript
+declare module '@ipcom/asterisk-ari' {
+  interface AriEventMap {
+    MyCustomEvent: {
+      type: 'MyCustomEvent';
+      payload: { foo: string };
+      application: string;
+    };
+  }
+}
+
+// Now fully typed — autocomplete works for 'MyCustomEvent'
+client.on('MyCustomEvent', (event) => {
+  console.log(event.payload.foo); // string ✔
+});
+```
+
+## Testing
+
+The project uses [Vitest](https://vitest.dev/) for unit testing.
+
+```bash
+# Run all tests
+npm test
+
+# Run in watch mode
+npm run test:watch
 ```
 
 ## Additional Features
@@ -348,13 +390,13 @@ The library provides access to many other ARI features:
 ```typescript
 // Create and manage a bridge
 const bridge = await client.bridges.createBridge({
-    type: 'mixing',
-    name: 'myBridge'
+  type: 'mixing',
+  name: 'myBridge'
 });
 
 // Add channels to bridge
 await client.bridges.addChannels(bridge.id, {
-    channel: ['channel-id-1', 'channel-id-2']
+  channel: ['channel-id-1', 'channel-id-2']
 });
 ```
 
@@ -364,10 +406,10 @@ await client.bridges.addChannels(bridge.id, {
 // Start recording on a channel
 const channel = client.Channel('channel-id');
 await channel.record({
-    name: 'recording-name',
-    format: 'wav',
-    maxDurationSeconds: 60,
-    beep: true
+  name: 'recording-name',
+  format: 'wav',
+  maxDurationSeconds: 60,
+  beep: true
 });
 ```
 
@@ -376,9 +418,9 @@ await channel.record({
 ```typescript
 // Create external media channel
 const channel = await client.channels.createExternalMedia({
-    app: 'myApp',
-    external_host: 'media-server:8088',
-    format: 'slin16'
+  app: 'myApp',
+  external_host: 'media-server:8088',
+  format: 'slin16'
 });
 ```
 
